@@ -6,10 +6,14 @@ import com.really.good.sir.dto.PatientDTO;
 import com.really.good.sir.dto.ServiceDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.really.good.sir.dto.UserSessionDTO;
 import io.cucumber.java.en.*;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.path.json.JsonPath;
+
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.is;
 
 import java.util.*;
 
@@ -36,6 +40,7 @@ public class HealthcareApiSteps {
     private String patientPhone;
     private String patientAddress;
     private String patientDateOfBirth;
+    private Integer lastServiceId;
 
     @Given("The correct API URL")
     public void the_api_base_url_is() {
@@ -100,6 +105,9 @@ public class HealthcareApiSteps {
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/services")
                 .then().extract().response();
+
+        // Save last created service ID
+        lastServiceId = response.jsonPath().getInt("id");
     }
 
     @When("I send a POST request to {string} with body:")
@@ -129,6 +137,15 @@ public class HealthcareApiSteps {
         final ServiceDTO serviceDTO = objectMapper.readValue(response.asString(), ServiceDTO.class);
 
         assertThat("Service id is incorrect", serviceDTO.getId(), greaterThan(0));
+        assertThat("Service name is incorrect", serviceDTO.getName(), equalTo(serviceName));
+        assertThat("Service price is incorrect", serviceDTO.getPrice(), equalTo(servicePrice));
+    }
+
+    @Then("The service response has correct data after update")
+    public void the_service_response_has_correct_data_after_update() throws JsonProcessingException {
+        final ServiceDTO serviceDTO = objectMapper.readValue(response.asString(), ServiceDTO.class);
+
+        assertThat("Service id is incorrect", serviceDTO.getId(), equalTo(lastServiceId));
         assertThat("Service name is incorrect", serviceDTO.getName(), equalTo(serviceName));
         assertThat("Service price is incorrect", serviceDTO.getPrice(), equalTo(servicePrice));
     }
@@ -233,7 +250,6 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
-
     @Then("The doctor response has correct data")
     public void the_doctor_response_has_correct_data() throws JsonProcessingException {
         final DoctorDTO doctorDTO = objectMapper.readValue(response.asString(), DoctorDTO.class);
@@ -273,7 +289,6 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
-
     @Then("The patient response has correct data")
     public void the_patient_response_has_correct_data() throws JsonProcessingException {
         final PatientDTO patientDTO = objectMapper.readValue(response.asString(), PatientDTO.class);
@@ -287,6 +302,164 @@ public class HealthcareApiSteps {
         assertThat("Patient dateOfBirth mismatch", patientDTO.getDateOfBirth(), equalTo(patientDateOfBirth));
     }
 
+    @Given("The Check Session endpoint is {string}")
+    public void the_check_session_endpoint_is(String endpoint) {
+        this.baseUrl = RestAssured.baseURI + endpoint;
+    }
+
+    @When("I send a POST request to check session")
+    public void i_send_a_post_request_to_check_session() throws JsonProcessingException {
+        Map<String, Object> body = new HashMap<>();
+        body.put("sessionId", sessionId);
+
+        requestBody = objectMapper.writeValueAsString(body);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(baseUrl)
+                .then().extract().response();
+    }
+
+    @Then("The session should be valid and contain role {string}")
+    public void the_session_should_be_valid_and_contain_role(String expectedRole) throws JsonProcessingException {
+        final UserSessionDTO sessionDTO = objectMapper.readValue(response.asString(), UserSessionDTO.class);
+
+        assertThat("Session id should be greater than 0", sessionDTO.getId(), greaterThan(0));
+        assertThat("Credential id should be greater than 0", sessionDTO.getCredentialId(), greaterThan(0));
+        assertThat("Role mismatch", sessionDTO.getRole(), equalTo(expectedRole));
+        assertThat("Login date should not be null", sessionDTO.getLoginDateTime(), notNullValue());
+    }
+
+    @When("I send a DELETE request to log out")
+    public void i_send_a_delete_request_to_log_out() {
+        int sessionNumericId = response.jsonPath().getInt("id");
+
+        response = given()
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/authorization/" + sessionNumericId)
+                .then().extract().response();
+    }
+
+    @Then("I logged out successfully")
+    public void i_logged_out_successfully() {
+        assertThat("Expected 204 status", response.statusCode(), equalTo(204));
+
+        String setCookieHeader = response.getHeader("Set-Cookie");
+        assertThat("Set-Cookie header should exist", setCookieHeader, notNullValue());
+        assertThat("Cookie should be expired", setCookieHeader, containsString("Max-Age=0"));
+        assertThat("Cookie should be marked as deleted", setCookieHeader, containsString("Session deleted"));
+    }
+
+    @When("I update the service")
+    public void i_update_the_service() throws JsonProcessingException {
+        if (lastServiceId == null) {
+            throw new AssertionError("No service ID saved to update");
+        }
+
+        serviceName = serviceName + "Updated";
+        servicePrice = servicePrice + 100;
+
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName(serviceName);
+        serviceDTO.setPrice(servicePrice);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+
+    @Then("The service was updated successfully")
+    public void the_service_was_updated_successfully() throws JsonProcessingException {
+        the_response_status_code_should_be(200);
+        the_response_json_should_be_valid();
+        the_service_response_has_correct_data();
+    }
+
+    @When("I delete the service")
+    public void i_delete_the_service() {
+        if (lastServiceId == null) {
+            throw new AssertionError("No service ID saved to delete");
+        }
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    @When("I get all services")
+    public void i_get_all_services() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/services")
+                .then().extract().response();
+
+        the_response_status_code_should_be(200);
+        the_response_json_should_be_valid_list();
+    }
+
+    public void the_response_json_should_be_valid_list() {
+        try {
+            response.then().contentType("application/json");
+            List<?> list = response.jsonPath().getList("$");
+            assertThat("Response should be a JSON array", list, is(notNullValue()));
+        } catch (Exception e) {
+            throw new AssertionError("Response is not a valid JSON array: " + e.getMessage());
+        }
+    }
+
+    @Then("The service with id should exist")
+    public void the_service_with_id_should_exist() {
+        if (lastServiceId == null) {
+            throw new AssertionError("No service ID saved to check existence");
+        }
+
+        Response getResponse = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/services")
+                .then().extract().response();
+
+        List<Map<String, Object>> services = getResponse.jsonPath().getList("$");
+
+        boolean found = services.stream()
+                .anyMatch(s -> ((Integer) s.get("id")).equals(lastServiceId));
+
+        assertThat("Service with id " + lastServiceId + " should exist", found, is(true));
+    }
+
+    @Then("The service with id should not exist")
+    public void the_service_with_id_should_not_exist() {
+        if (lastServiceId == null) {
+            throw new AssertionError("No service ID saved to check non-existence");
+        }
+
+        Response getResponse = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/services")
+                .then().extract().response();
+
+        List<Map<String, Object>> services = getResponse.jsonPath().getList("$");
+
+        boolean found = services.stream()
+                .anyMatch(s -> ((Integer) s.get("id")).equals(lastServiceId));
+
+        assertThat("Service with id " + lastServiceId + " should NOT exist", found, is(false));
+    }
+
+
     private String randomLetters(int length) {
         String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         Random random = new Random();
@@ -296,7 +469,6 @@ public class HealthcareApiSteps {
         }
         return sb.toString();
     }
-
 
     private String randomPhoneNumber(int length) {
         Random random = new Random();
