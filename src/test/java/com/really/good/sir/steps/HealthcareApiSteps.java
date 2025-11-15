@@ -11,6 +11,7 @@ import io.cucumber.java.en.*;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.path.json.JsonPath;
+import org.hamcrest.Matchers;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.is;
@@ -41,6 +42,11 @@ public class HealthcareApiSteps {
     private String patientAddress;
     private String patientDateOfBirth;
     private Integer lastServiceId;
+    private String originalPatientEmail;
+    private String originalPatientPhone;
+    private Integer existingPatientId;
+    private String otherPatientEmail;
+    private String otherPatientPhone;
 
     @Given("The correct API URL")
     public void the_api_base_url_is() {
@@ -178,7 +184,7 @@ public class HealthcareApiSteps {
 
     @Then("The response should be a valid JSON object for {string}")
     public void the_response_should_be_a_valid_json_object(String entityType) {
-        assertThat(response.getBody().asString(), not(isEmptyString()));
+        assertThat(response.getBody().asString(), not(Matchers.notNullValue()));
 
         Map<String, Object> json = response.jsonPath().getMap("$");
         assertThat("Response should be a JSON object", json, is(notNullValue()));
@@ -214,7 +220,7 @@ public class HealthcareApiSteps {
 
     @Then("The response should match the request body for fields {string}")
     public void the_response_should_match_the_request_body_for_fields(String fields) {
-        List<String> fieldList = Arrays.asList(fields.split(",\\s*"));
+        String[] fieldList = fields.split(",\\s*");
         Map<String, Object> responseJson = response.jsonPath().getMap("$");
         Map<String, Object> requestJson = JsonPath.from(requestBody).getMap("$");
 
@@ -230,7 +236,7 @@ public class HealthcareApiSteps {
         doctorFirstName = "DoctorTest" + randomLetters(10);
         doctorLastName = "Medic" + randomLetters(10);
         doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
-        doctorPhone = randomPhoneNumber(9);
+        doctorPhone = randomPhoneNumber();
         doctorSpecializationId = 1;
 
         DoctorDTO doctorDTO = new DoctorDTO();
@@ -267,9 +273,13 @@ public class HealthcareApiSteps {
         patientFirstName = "PatientTest" + randomLetters(10);
         patientLastName = "User" + randomLetters(10);
         patientEmail = (patientFirstName + patientLastName).toLowerCase() + "@gmail.com";
-        patientPhone = randomPhoneNumber(9);
+        patientPhone = randomPhoneNumber();
         patientAddress = "123 Main Street";
         patientDateOfBirth = "1990-01-01";
+
+        // Save originals only if not already set
+        if (originalPatientEmail == null) originalPatientEmail = patientEmail;
+        if (originalPatientPhone == null) originalPatientPhone = patientPhone;
 
         PatientDTO patientDTO = new PatientDTO();
         patientDTO.setFirstName(patientFirstName);
@@ -434,7 +444,7 @@ public class HealthcareApiSteps {
         List<Map<String, Object>> services = getResponse.jsonPath().getList("$");
 
         boolean found = services.stream()
-                .anyMatch(s -> ((Integer) s.get("id")).equals(lastServiceId));
+                .anyMatch(s -> s.get("id").equals(lastServiceId));
 
         assertThat("Service with id " + lastServiceId + " should exist", found, is(true));
     }
@@ -454,11 +464,586 @@ public class HealthcareApiSteps {
         List<Map<String, Object>> services = getResponse.jsonPath().getList("$");
 
         boolean found = services.stream()
-                .anyMatch(s -> ((Integer) s.get("id")).equals(lastServiceId));
+                .anyMatch(s -> s.get("id").equals(lastServiceId));
 
         assertThat("Service with id " + lastServiceId + " should NOT exist", found, is(false));
     }
 
+    @When("I create new patient without a session")
+    public void i_create_new_patient_without_session() throws JsonProcessingException {
+        patientFirstName = "PatientTest" + randomLetters(10);
+        patientLastName = "User" + randomLetters(10);
+        patientEmail = (patientFirstName + patientLastName).toLowerCase() + "@gmail.com";
+        patientPhone = randomPhoneNumber();
+        patientAddress = "123 Main Street";
+        patientDateOfBirth = "1990-01-01";
+
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @Then("The response should contain message {string}")
+    public void the_response_should_contain_message(String expectedMessage) {
+        String actualMessage = response.jsonPath().getString("message");
+        assertThat("Response message mismatch: " + actualMessage, actualMessage, equalTo(expectedMessage));
+    }
+
+    @When("I create new patient with an invalid session_id")
+    public void i_create_new_patient_with_invalid_session_id() throws JsonProcessingException {
+        // Valid patient data, invalid session cookie
+        patientFirstName = "PatientTest" + randomLetters(10);
+        patientLastName = "User" + randomLetters(10);
+        patientEmail = (patientFirstName + patientLastName).toLowerCase() + "@gmail.com";
+        patientPhone = randomPhoneNumber();
+        patientAddress = "456 Fake Street";
+        patientDateOfBirth = "1990-01-01";
+
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid numeric id
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with empty first name")
+    public void i_create_new_patient_with_empty_first_name() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName(""); // invalid
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail("invalidfirst@gmail.com");
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with an empty last name")
+    public void i_create_new_patient_with_empty_last_name() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName(""); // invalid
+        patientDTO.setEmail("invalidlast@gmail.com");
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient without an address")
+    public void i_create_new_patient_without_an_address() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail("noaddress@gmail.com");
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress(""); // invalid
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with an invalid birth date")
+    public void i_create_new_patient_with_an_invalid_birth_date() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail("invaliddate@gmail.com");
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress("456 Street");
+        patientDTO.setDateOfBirth("2050-01-01"); // 🚫 future date
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with an empty email")
+    public void i_create_new_patient_with_empty_email() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail(""); // empty email
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with an invalid email format")
+    public void i_create_new_patient_with_invalid_email_format() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail("invalid-email"); // invalid format
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with a duplicate email")
+    public void i_create_new_patient_with_duplicate_email() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail(originalPatientEmail); // use original
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with an empty phone")
+    public void i_create_new_patient_with_empty_phone() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail("unique" + randomLetters(6) + "@gmail.com");
+        patientDTO.setPhone(""); // empty phone
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with an invalid phone format")
+    public void i_create_new_patient_with_invalid_phone_format() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail("unique" + randomLetters(6) + "@gmail.com");
+        patientDTO.setPhone("123abc456"); // invalid phone format
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I create new patient with a duplicate phone")
+    public void i_create_new_patient_with_duplicate_phone() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("Patient" + randomLetters(6));
+        patientDTO.setLastName("User" + randomLetters(6));
+        patientDTO.setEmail("unique" + randomLetters(6) + "@gmail.com");
+        patientDTO.setPhone(originalPatientPhone);
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient's first name")
+    public void i_update_the_patient_first_name() throws JsonProcessingException {
+        patientFirstName = "Updated" + randomLetters(6);
+
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail); // same email allowed
+        patientDTO.setPhone(patientPhone); // same phone allowed
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an email which exists")
+    public void i_update_patient_with_duplicate_email() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName("PatientDup");
+        patientDTO.setLastName("UserDup");
+        patientDTO.setEmail(otherPatientEmail); // email of a different patient
+        patientDTO.setPhone(randomPhoneNumber());
+        patientDTO.setAddress("123 Main Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient without a session")
+    public void i_update_the_patient_without_session() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an invalid session_id")
+    public void i_update_the_patient_with_invalid_session_id() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with empty first name")
+    public void i_update_patient_with_empty_first_name() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(""); // invalid
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an empty last name")
+    public void i_update_patient_with_empty_last_name() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(""); // invalid
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient without an address")
+    public void i_update_patient_without_address() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(""); // invalid
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an invalid birth date")
+    public void i_update_patient_with_invalid_birth_date() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth("2050-01-01"); // invalid future date
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an empty email")
+    public void i_update_patient_with_empty_email() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(""); // invalid
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an invalid email format")
+    public void i_update_patient_with_invalid_email_format() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail("invalid-email"); // invalid format
+        patientDTO.setPhone(patientPhone);
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an empty phone")
+    public void i_update_patient_with_empty_phone() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(""); // invalid
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an invalid phone format")
+    public void i_update_patient_with_invalid_phone_format() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone("123abc456"); // invalid
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I update the patient with an existing phone")
+    public void i_update_patient_with_duplicate_phone() throws JsonProcessingException {
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setId(existingPatientId);
+        patientDTO.setFirstName(patientFirstName);
+        patientDTO.setLastName(patientLastName);
+        patientDTO.setEmail(patientEmail);
+        patientDTO.setPhone(otherPatientPhone); // phone of a different patient
+        patientDTO.setAddress(patientAddress);
+        patientDTO.setDateOfBirth(patientDateOfBirth);
+
+        requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @Given("Another patient exists for duplicate tests")
+    public void another_patient_exists_for_duplicate_tests() throws JsonProcessingException {
+        if (sessionId == null) {
+            throw new IllegalStateException("Admin must be logged in first!");
+        }
+        long timestamp = System.currentTimeMillis();
+        String uniqueEmail = "duplicate+" + timestamp + "@example.com";
+        String uniquePhone = "555" + (1000000 + (timestamp % 9000000)); // ensures 7 digits
+
+        PatientDTO patientDTO = new PatientDTO();
+        patientDTO.setFirstName("DupTest");
+        patientDTO.setLastName("Patient");
+        patientDTO.setEmail(uniqueEmail);
+        patientDTO.setPhone(uniquePhone);
+        patientDTO.setAddress("123 Dup Street");
+        patientDTO.setDateOfBirth("1990-01-01");
+
+        String requestBody = objectMapper.writeValueAsString(patientDTO);
+
+        Response dupResponse = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/patients")
+                .then()
+                .extract()
+                .response();
+        Object idObj = dupResponse.jsonPath().get("id");
+        if (idObj == null) {
+            throw new IllegalStateException("Response did not contain 'id': " + dupResponse.asString());
+        }
+        otherPatientEmail = patientDTO.getEmail();
+        otherPatientPhone = patientDTO.getPhone();
+    }
+
+
+    @Given("An existing patient is available")
+    public void an_existing_patient_is_available() throws JsonProcessingException {
+        i_create_new_patient(); // reuse creation step
+        existingPatientId = response.jsonPath().getInt("id"); // save ID for update
+    }
 
     private String randomLetters(int length) {
         String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -470,11 +1055,11 @@ public class HealthcareApiSteps {
         return sb.toString();
     }
 
-    private String randomPhoneNumber(int length) {
+    private String randomPhoneNumber() {
         Random random = new Random();
         StringBuilder sb = new StringBuilder();
         sb.append(random.nextInt(9) + 1);
-        for (int i = 1; i < length; i++) {
+        for (int i = 1; i < 9; i++) {
             sb.append(random.nextInt(10));
         }
         return sb.toString();

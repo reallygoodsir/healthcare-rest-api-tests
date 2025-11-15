@@ -19,3 +19,7 @@ Feature: Healthcare API - Login Flows
     When I send a DELETE request to log out
     Then The response status code should be 204
     And I logged out successfully
+
+  Scenario: Log in with bad password
+  Scenario: Log in with bad email
+
