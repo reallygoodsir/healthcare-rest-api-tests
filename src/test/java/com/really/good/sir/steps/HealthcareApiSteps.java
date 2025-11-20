@@ -1,12 +1,9 @@
 package com.really.good.sir.steps;
 
 import com.really.good.sir.config.ConfigLoader;
-import com.really.good.sir.dto.DoctorDTO;
-import com.really.good.sir.dto.PatientDTO;
-import com.really.good.sir.dto.ServiceDTO;
+import com.really.good.sir.dto.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.really.good.sir.dto.UserSessionDTO;
 import io.cucumber.java.en.*;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -16,11 +13,13 @@ import org.hamcrest.Matchers;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.is;
 
+import java.time.LocalDate;
 import java.util.*;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class HealthcareApiSteps {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -47,6 +46,13 @@ public class HealthcareApiSteps {
     private Integer existingPatientId;
     private String otherPatientEmail;
     private String otherPatientPhone;
+    private String otherDoctorPhone;
+    private String otherDoctorEmail;
+    private int patientId;
+    private int lastDoctorId;
+    private int existingDoctorId;
+    private int lastScheduleId;
+    private int overlapScheduleId;
 
     @Given("The correct API URL")
     public void the_api_base_url_is() {
@@ -1009,7 +1015,7 @@ public class HealthcareApiSteps {
             throw new IllegalStateException("Admin must be logged in first!");
         }
         long timestamp = System.currentTimeMillis();
-        String uniqueEmail = "duplicate+" + timestamp + "@example.com";
+        String uniqueEmail = "duplicate+" + timestamp + "@gmail.com";
         String uniquePhone = "555" + (1000000 + (timestamp % 9000000)); // ensures 7 digits
 
         PatientDTO patientDTO = new PatientDTO();
@@ -1039,10 +1045,1243 @@ public class HealthcareApiSteps {
     }
 
 
+//    @Given("An existing patient is available")
+//    public void an_existing_patient_is_available() throws JsonProcessingException {
+//        i_create_new_patient(); // reuse creation step
+//        existingPatientId = response.jsonPath().getInt("id"); // save ID for update
+//    }
+//
+//    @Given("An existing patient is available")
+//    public void an_existing_patient_is_available() throws JsonProcessingException {
+//        if (sessionId == null) {
+//            throw new IllegalStateException("Admin must be logged in first!");
+//        }
+//
+//        long ts = System.currentTimeMillis();
+//        PatientDTO patient = new PatientDTO();
+//        patient.setFirstName("John");
+//        patient.setLastName("Doe");
+//        patient.setEmail("user+" + ts + "@gmail.com");
+//        patient.setPhone("555" + (1000000 + (ts % 9000000)));
+//        patient.setAddress("123 Street");
+//        patient.setDateOfBirth("1990-01-01");
+//
+//        String body = objectMapper.writeValueAsString(patient);
+//
+//        response = given()
+//                .header("Content-Type", "application/json")
+//                .cookie("session_id", sessionId)
+//                .body(body)
+//                .post(RestAssured.baseURI + "/patients")
+//                .then()
+//                .extract()
+//                .response();
+//
+//        Object idObj = response.jsonPath().get("id");
+//        if (idObj == null) {
+//            throw new IllegalStateException("Patient creation failed: " + response.asString());
+//        }
+//
+//        patientId = ((Number) idObj).intValue();
+//    }
+
     @Given("An existing patient is available")
     public void an_existing_patient_is_available() throws JsonProcessingException {
-        i_create_new_patient(); // reuse creation step
-        existingPatientId = response.jsonPath().getInt("id"); // save ID for update
+        if (sessionId == null) {
+            throw new IllegalStateException("Admin must be logged in first!");
+        }
+
+        long ts = System.currentTimeMillis();
+
+        // Create a unique patient
+        PatientDTO patient = new PatientDTO();
+        patient.setFirstName("John");
+        patient.setLastName("Doe");
+        patient.setEmail("user+" + ts + "@gmail.com");
+        patient.setPhone("555" + (1000000 + (ts % 9000000)));
+        patient.setAddress("123 Street");
+        patient.setDateOfBirth("1990-01-01");
+
+        // Save values for update tests
+        patientFirstName = patient.getFirstName();
+        patientLastName  = patient.getLastName();
+        patientEmail     = patient.getEmail();
+        patientPhone     = patient.getPhone();
+        patientAddress   = patient.getAddress();
+        patientDateOfBirth = patient.getDateOfBirth();
+
+        String body = objectMapper.writeValueAsString(patient);
+
+        // Send request
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(body)
+                .post(RestAssured.baseURI + "/patients")
+                .then()
+                .extract()
+                .response();
+
+        Object idObj = response.jsonPath().get("id");
+        if (idObj == null) {
+            throw new IllegalStateException("Patient creation failed: " + response.asString());
+        }
+
+        // Store patient id for update/delete tests
+        patientId = ((Number) idObj).intValue();
+        existingPatientId = patientId;
+    }
+
+    @When("I delete the patient")
+    public void i_delete_the_patient() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/patients/" + patientId)
+                .then()
+                .extract()
+                .response();
+    }
+
+    @Then("The delete patient response has correct data")
+    public void the_patient_deletion_response_has_correct_data() {
+        assertEquals(204, response.statusCode());
+        assertTrue(response.asString().isEmpty());
+    }
+
+    @When("I delete the patient without a session")
+    public void i_delete_the_patient_without_a_session() {
+        response = given()
+                .delete(RestAssured.baseURI + "/patients/" + patientId)
+                .then()
+                .extract()
+                .response();
+    }
+
+    @When("I delete the patient with an invalid session_id")
+    public void i_delete_the_patient_with_an_invalid_session_id() {
+        response = given()
+                .cookie("session_id", "999999") // does not exist
+                .delete(RestAssured.baseURI + "/patients/" + patientId)
+                .then()
+                .extract()
+                .response();
+    }
+
+    @When("I delete the patient without an id")
+    public void i_delete_the_patient_without_an_id() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/patients")
+                .then()
+                .extract()
+                .response();
+    }
+
+    @When("I create new service without a session")
+    public void i_create_new_service_without_session() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setName("ServiceTestNoSession" + randomLetters(5));
+        serviceDTO.setPrice(200);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I create new service with an invalid session_id")
+    public void i_create_new_service_with_invalid_session_id() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setName("ServiceTestInvalidSession" + randomLetters(5));
+        serviceDTO.setPrice(300);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid session
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I create new service with empty name")
+    public void i_create_new_service_with_empty_name() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setName(""); // empty
+        serviceDTO.setPrice(250);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I create new service with a duplicate name")
+    public void i_create_new_service_with_duplicate_name() throws JsonProcessingException {
+        if (serviceName == null) {
+            throw new AssertionError("No previous service name to duplicate");
+        }
+
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setName(serviceName); // duplicate
+        serviceDTO.setPrice(400);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I create new service with invalid price")
+    public void i_create_new_service_with_invalid_price() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setName("ServiceInvalidPrice" + randomLetters(5));
+        serviceDTO.setPrice(-50); // invalid price
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @Given("An existing service is available")
+    public void an_existing_service_is_available() throws JsonProcessingException {
+        if (lastServiceId == null) {
+            // Create a service if none exists
+            i_create_new_service();
+            the_response_status_code_should_be(200); // ensure creation success
+        }
+    }
+
+    @When("I update the service name")
+    public void i_update_the_service_name() throws JsonProcessingException {
+        serviceName = "UpdatedService" + randomLetters(5);
+
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName(serviceName);
+        serviceDTO.setPrice(servicePrice);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I update the service without a session")
+    public void i_update_the_service_without_a_session() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName("NoSessionService" + randomLetters(5));
+        serviceDTO.setPrice(servicePrice);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I update the service with an invalid session_id")
+    public void i_update_the_service_with_invalid_session_id() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName("InvalidSessionService" + randomLetters(5));
+        serviceDTO.setPrice(servicePrice);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid session
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I update the service with an empty name")
+    public void i_update_the_service_with_empty_name() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName(""); // empty name
+        serviceDTO.setPrice(servicePrice);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I update the service with a duplicate name")
+    public void i_update_the_service_with_a_duplicate_name() throws JsonProcessingException {
+        // Ensure another service exists with a name to duplicate
+        String duplicateName = "DuplicateService" + randomLetters(5);
+        ServiceDTO anotherService = new ServiceDTO();
+        anotherService.setName(duplicateName);
+        anotherService.setPrice(300);
+
+        String anotherRequestBody = objectMapper.writeValueAsString(anotherService);
+
+        Response createResponse = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(anotherRequestBody)
+                .post(RestAssured.baseURI + "/services")
+                .then().extract().response();
+
+        int anotherServiceId = createResponse.jsonPath().getInt("id");
+
+        // Now update lastServiceId to duplicate the name
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName(duplicateName); // duplicate
+        serviceDTO.setPrice(servicePrice);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I update the service with invalid price")
+    public void i_update_the_service_with_invalid_price() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName(serviceName);
+        serviceDTO.setPrice(-100); // invalid
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I delete the service without a session")
+    public void i_delete_the_service_without_a_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .delete(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    // DELETE with invalid session_id
+    @When("I delete the service with an invalid session_id")
+    public void i_delete_the_service_with_invalid_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid session
+                .delete(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    // DELETE with invalid service id
+    @When("I delete a service with invalid id")
+    public void i_delete_a_service_with_invalid_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId) // valid session
+                .delete(RestAssured.baseURI + "/services/abc") // invalid ID
+                .then().extract().response();
+    }
+
+    // DELETE without an id
+    @When("I delete a service without an id")
+    public void i_delete_a_service_without_an_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId) // valid session
+                .delete(RestAssured.baseURI + "/services/") // missing id
+                .then().extract().response();
+    }
+
+    @When("I create new doctor without a session")
+    public void i_create_new_doctor_without_a_session() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("TestFirst");
+        doctorDTO.setLastName("TestLast");
+        doctorDTO.setEmail("testemail@gmail.com");
+        doctorDTO.setPhone("1234567890");
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with an invalid session_id")
+    public void i_create_new_doctor_with_invalid_session_id() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("TestFirst");
+        doctorDTO.setLastName("TestLast");
+        doctorDTO.setEmail("testemail2@gmail.com");
+        doctorDTO.setPhone("1234567891");
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with empty first name")
+    public void i_create_new_doctor_with_empty_first_name() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName(""); // empty
+        doctorDTO.setLastName("ValidLast");
+        doctorDTO.setEmail("validemail1@gmail.com");
+        doctorDTO.setPhone("1234567892");
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with empty last name")
+    public void i_create_new_doctor_with_empty_last_name() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("ValidFirst");
+        doctorDTO.setLastName(""); // empty
+        doctorDTO.setEmail("validemail2@gmail.com");
+        doctorDTO.setPhone("1234567893");
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with empty email")
+    public void i_create_new_doctor_with_empty_email() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("ValidFirst");
+        doctorDTO.setLastName("ValidLast");
+        doctorDTO.setEmail(""); // empty
+        doctorDTO.setPhone("1234567894");
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with duplicate email")
+    public void i_create_new_doctor_with_duplicate_email() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("AnotherFirst");
+        doctorDTO.setLastName("AnotherLast");
+        doctorDTO.setEmail(doctorEmail); // same as last created
+        doctorDTO.setPhone(randomPhoneNumber());
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with empty phone")
+    public void i_create_new_doctor_with_empty_phone() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("ValidFirst");
+        doctorDTO.setLastName("ValidLast");
+        doctorDTO.setEmail("uniqueemail@gmail.com");
+        doctorDTO.setPhone(""); // empty
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with duplicate phone")
+    public void i_create_new_doctor_with_duplicate_phone() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("AnotherFirst");
+        doctorDTO.setLastName("AnotherLast");
+        doctorDTO.setEmail("uniqueemail2@gmail.com");
+        doctorDTO.setPhone(doctorPhone); // duplicate
+        doctorDTO.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @Given("An existing doctor is available")
+    public void an_existing_doctor_is_available() throws JsonProcessingException {
+        if (sessionId == null) {
+            throw new IllegalStateException("Admin must be logged in first!");
+        }
+
+        long ts = System.currentTimeMillis();
+
+        // Generate valid doctor data
+        doctorFirstName = "Doctor" + randomLetters(5); // matches NAME_REGEX
+        doctorLastName = "Medic" + randomLetters(5);   // matches NAME_REGEX
+        doctorEmail = "doctor" + ts + "@gmail.com";  // valid email format
+        doctorPhone = "+380" + (100000000 + (ts % 900000000)); // matches PHONE_REGEX
+        doctorSpecializationId = 1; // must exist in DB
+
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName(doctorFirstName);
+        doctorDTO.setLastName(doctorLastName);
+        doctorDTO.setEmail(doctorEmail);
+        doctorDTO.setPhone(doctorPhone);
+        doctorDTO.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        // Send request to create doctor
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().statusCode(201)
+                .extract().response();
+
+        Object idObj = response.jsonPath().get("id");
+        if (idObj == null) {
+            throw new IllegalStateException("Doctor creation failed: " + response.asString());
+        }
+
+        lastDoctorId = ((Number) idObj).intValue();
+    }
+
+
+    @Given("Another doctor exists for duplicate tests")
+    public void another_doctor_exists_for_duplicate_tests() throws JsonProcessingException {
+        if (sessionId == null) {
+            throw new IllegalStateException("Admin must be logged in first!");
+        }
+
+        long ts = System.currentTimeMillis();
+
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName("DupDoctor");
+        doctorDTO.setLastName("Medic");
+        doctorDTO.setEmail("dupdoctor+" + ts + "@gmail.com");
+        doctorDTO.setPhone("+380" + (200000000 + (ts % 900000000)));
+        doctorDTO.setSpecializationId(1);
+
+        String body = objectMapper.writeValueAsString(doctorDTO);
+
+        Response dupResponse = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(body)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().statusCode(201)
+                .extract().response();
+
+        Object idObj = dupResponse.jsonPath().get("id");
+        if (idObj == null) {
+            throw new IllegalStateException("Duplicate doctor creation failed: " + dupResponse.asString());
+        }
+
+        otherDoctorEmail = doctorDTO.getEmail();
+        otherDoctorPhone = doctorDTO.getPhone();
+    }
+
+    @When("I update the doctor's first name")
+    public void i_update_the_doctor_first_name() throws JsonProcessingException {
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setId(lastDoctorId);
+
+        String newFirstName = "UpdatedFirst" + randomLetters(5);
+        doctorDTO.setFirstName(newFirstName);
+        doctorDTO.setLastName(doctorLastName);
+        doctorDTO.setEmail(doctorEmail);
+        doctorDTO.setPhone(doctorPhone);
+        doctorDTO.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+
+        doctorFirstName = newFirstName;
+    }
+
+
+    // Update without session
+    @When("I update the doctor without a session")
+    public void i_update_the_doctor_without_a_session() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName("UpdatedFirst" + randomLetters(5));
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // Update with invalid session
+    @When("I update the doctor with an invalid session_id")
+    public void i_update_the_doctor_with_invalid_session_id() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName("UpdatedFirst" + randomLetters(5));
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // Empty first name
+    @When("I update the doctor with empty first name")
+    public void i_update_the_doctor_with_empty_first_name() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName("");
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // Empty last name
+    @When("I update the doctor with empty last name")
+    public void i_update_the_doctor_with_empty_last_name() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName("");
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // Empty email
+    @When("I update the doctor with empty email")
+    public void i_update_the_doctor_with_empty_email() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail("");
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // Duplicate email
+    @When("I update the doctor with duplicate email")
+    public void i_update_doctor_with_duplicate_email() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail(otherDoctorEmail); // from another doctor
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // Empty phone
+    @When("I update the doctor with empty phone")
+    public void i_update_the_doctor_with_empty_phone() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone("");
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // Duplicate phone
+    @When("I update the doctor with duplicate phone")
+    public void i_update_the_doctor_with_duplicate_phone() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(otherDoctorPhone); // from another doctor
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I delete the doctor")
+    public void i_delete_the_doctor() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I delete the doctor without a session")
+    public void i_delete_the_doctor_without_a_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I delete the doctor with an invalid session_id")
+    public void i_delete_the_doctor_with_invalid_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid session
+                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I delete a doctor with invalid id")
+    public void i_delete_doctor_with_invalid_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctors/9999999") // non-existent id
+                .then().extract().response();
+    }
+
+    @When("I delete a doctor without an id")
+    public void i_delete_doctor_without_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctors/") // missing id in path
+                .then().extract().response();
+    }
+
+    @Given("An existing doctor is available for schedule")
+    public void an_existing_doctor_is_available_for_schedule() throws JsonProcessingException {
+        if (sessionId == null) {
+            throw new IllegalStateException("Admin must be logged in first!");
+        }
+
+        long ts = System.currentTimeMillis();
+
+        DoctorDTO doctor = new DoctorDTO();
+        doctor.setFirstName("DoctorScheduler" + randomLetters(5));
+        doctor.setLastName("LastDoctorScheduler" + randomLetters(3));
+        doctor.setEmail("doctor" + randomLetters(6) + "@gmail.com");
+        doctor.setPhone("555" + (1000000 + (ts % 9000000)));
+        doctor.setSpecializationId(1);
+
+        // Save values if needed later
+        doctorFirstName = doctor.getFirstName();
+        doctorLastName = doctor.getLastName();
+        doctorEmail = doctor.getEmail();
+        doctorPhone = doctor.getPhone();
+
+        String body = objectMapper.writeValueAsString(doctor);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(body)
+                .post(RestAssured.baseURI + "/doctors")
+                .then()
+                .extract()
+                .response();
+
+        Object idObj = response.jsonPath().get("id");
+
+        if (idObj == null) {
+            throw new IllegalStateException(
+                    "Doctor creation failed (no id returned): " + response.asString()
+            );
+        }
+
+        lastDoctorId = ((Number) idObj).intValue();
+        existingDoctorId = lastDoctorId;
+    }
+
+
+    @When("I create a valid doctor schedule")
+    public void i_create_a_valid_doctor_schedule() throws JsonProcessingException {
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        schedule.setStartTime("09:00");
+        schedule.setEndTime("11:00");
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+
+        lastScheduleId = response.jsonPath().getInt("id");
+    }
+
+    @Then("The doctor schedule response has correct data")
+    public void the_doctor_schedule_response_has_correct_data() {
+        assertThat(response.jsonPath().getInt("doctorId"), equalTo(lastDoctorId));
+        assertNotNull(response.jsonPath().getString("scheduleDate"));
+        assertNotNull(response.jsonPath().getString("startTime"));
+        assertNotNull(response.jsonPath().getString("endTime"));
+    }
+    
+    @When("I create a doctor schedule without a session")
+    public void i_create_a_doctor_schedule_without_session() throws JsonProcessingException {
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        schedule.setStartTime("10:00");
+        schedule.setEndTime("12:00");
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+    }
+
+    @When("I create a doctor schedule with an invalid session_id")
+    public void i_create_a_doctor_schedule_with_invalid_session_id() throws JsonProcessingException {
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        schedule.setStartTime("10:00");
+        schedule.setEndTime("12:00");
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+    }
+
+    @When("I create a doctor schedule with a past date")
+    public void i_create_a_doctor_schedule_with_a_past_date() throws JsonProcessingException {
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().minusDays(1).toString());
+        schedule.setStartTime("10:00");
+        schedule.setEndTime("11:00");
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+    }
+
+    @When("I create a doctor schedule with invalid time range")
+    public void i_create_a_doctor_schedule_with_invalid_time_range() throws JsonProcessingException {
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        schedule.setStartTime("14:00");
+        schedule.setEndTime("13:00"); // end < start (invalid)
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+    }
+
+    @When("I create a doctor schedule that overlaps")
+    public void i_create_a_doctor_schedule_that_overlaps() throws JsonProcessingException {
+        // overlapping means use same date & time as the valid schedule created first
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        schedule.setStartTime("09:30");
+        schedule.setEndTime("10:30");
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+    }
+
+    // Create the main schedule for update
+    @Given("An existing doctor schedule is available")
+    public void an_existing_doctor_schedule_is_available() throws JsonProcessingException {
+        if (sessionId == null) {
+            throw new IllegalStateException("Admin must be logged in first!");
+        }
+
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("09:00");
+        dto.setEndTime("11:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+
+        Object idObj = response.jsonPath().get("id");
+        if (idObj == null) {
+            throw new IllegalStateException(
+                    "Schedule creation failed (no id returned). Response: " + response.asString()
+            );
+        }
+
+        lastScheduleId = ((Number) idObj).intValue();
+    }
+
+    // Create a second schedule for overlapping test setup (non-overlapping initially)
+    @Given("Another doctor schedule exists for overlapping tests")
+    public void another_doctor_schedule_exists_for_overlapping_tests() throws JsonProcessingException {
+
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("12:00"); // non-overlapping
+        dto.setEndTime("14:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+
+        Object idObj = response.jsonPath().get("id");
+        if (idObj == null) {
+            throw new IllegalStateException(
+                    "Another schedule creation failed (no id returned). Response: " + response.asString()
+            );
+        }
+
+        overlapScheduleId = ((Number) idObj).intValue();
+    }
+
+    // Standard update
+    // Standard update
+    @When("I update the doctor schedule")
+    public void i_update_the_doctor_schedule() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(2).toString());
+        dto.setStartTime("13:00");
+        dto.setEndTime("15:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .then().extract().response();
+    }
+
+    // Update without session
+    @When("I update the doctor schedule without a session")
+    public void i_update_the_doctor_schedule_without_a_session() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(2).toString());
+        dto.setStartTime("13:00");
+        dto.setEndTime("15:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .then().extract().response();
+    }
+
+    // Update with invalid session
+    @When("I update the doctor schedule with an invalid session_id")
+    public void i_update_with_invalid_session_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(2).toString());
+        dto.setStartTime("13:00");
+        dto.setEndTime("15:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "9999999")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .then().extract().response();
+    }
+
+    // Update with past date
+    @When("I update the doctor schedule with a past date")
+    public void i_update_doctor_schedule_with_past_date() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().minusDays(2).toString());
+        dto.setStartTime("09:00");
+        dto.setEndTime("11:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .then().extract().response();
+    }
+
+    // Invalid time (start > end)
+    @When("I update the doctor schedule with invalid start or end time")
+    public void i_update_doctor_schedule_with_invalid_time() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("15:00");
+        dto.setEndTime("14:30"); // invalid
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .then().extract().response();
+    }
+
+    // Trigger overlapping time (update first schedule to overlap)
+    @When("I update the doctor schedule to an overlapping time")
+    public void i_update_to_overlapping_time() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("12:30"); // overlaps with 12:00–14:00
+        dto.setEndTime("13:30");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .then().extract().response();
+    }
+
+    // Delete schedule normally
+    @When("I delete the doctor schedule")
+    public void i_delete_the_doctor_schedule() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/" + lastScheduleId)
+                .then().extract().response();
+    }
+
+    // Delete schedule without session
+    @When("I delete the doctor schedule without a session")
+    public void i_delete_the_doctor_schedule_without_a_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/" + lastScheduleId)
+                .then().extract().response();
+    }
+
+    // Delete schedule with invalid session
+    @When("I delete the doctor schedule with an invalid session_id")
+    public void i_delete_the_doctor_schedule_with_invalid_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "9999999")
+                .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/" + lastScheduleId)
+                .then().extract().response();
+    }
+
+    // Delete schedule with invalid ID
+    @When("I delete a doctor schedule with invalid id")
+    public void i_delete_doctor_schedule_with_invalid_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/9999999")
+                .then().extract().response();
+    }
+
+    // Delete schedule without providing scheduleId
+    @When("I delete a doctor schedule without a schedule id")
+    public void i_delete_doctor_schedule_without_schedule_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/") // missing scheduleId
+                .then().extract().response();
     }
 
     private String randomLetters(int length) {
