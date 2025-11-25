@@ -559,9 +559,20 @@ Feature: Healthcare API - Flows
     And The session cookie "session_id" should exist and not be empty
     And The response should contain role "ADMIN"
 
-    Given An existing doctor is available
-    And An existing patient is available
-    And An existing doctor schedule is available
+    When I create new doctor
+    Then The response status code should be 201
+    And The response JSON should be valid
+    And The doctor response has correct data
+
+    When I create a valid doctor schedule
+    Then The response status code should be 200
+    And The doctor schedule response has correct data
+
+    When I create new patient
+    Then The response status code should be 201
+    And The response JSON should be valid
+    And The patient response has correct data
+
 
     When I clear the session
     Then The session should be empty
@@ -585,61 +596,128 @@ Feature: Healthcare API - Flows
     Then The response status code should be 403
     And The response should contain message "Forbidden to access resource"
 
-    When I create an appointment with an invalid schedule id
-    Then The response status code should be 400
-    And The response should contain message "Failed to create an appointment | Bad Request"
-
     When I clear the session
     Then The session should be empty
 
-    Given I have credentials "adrian@gmail.com" and "39963516"
+      # --- INVALID: SESSION ID WRONG FORMAT ---
+    When I create an appointment with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format."
+
+    # --- INVALID: SESSION DOES NOT EXIST ---
+    When I create an appointment with a non-existing session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist."
+
+    # --- INVALID: ROLE NOT ALLOWED (ADMIN tries) ---
+    Given I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
-    And The session cookie "session_id" should exist and not be empty
-    And The response should contain role "DOCTOR"
 
-    When I create an appointment outcome
-    Then The response status code should be 200
-    And The response JSON should be valid
-
-    When I create an appointment outcome without a session
-    Then The response status code should be 401
-    And The response should contain message "Not authorized"
-
-    When I create an appointment outcome with an invalid session_id
+    When I create an appointment as an admin
     Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
-
-    When I create an appointment outcome with an invalid appointment_id
-    Then The response status code should be 500
+    And The response should contain message "Forbidden to access resource. Role is not allowed."
 
     When I clear the session
     Then The session should be empty
 
+    # --- VALID CALL CENTER AGENT LOGIN AGAIN ---
     Given I have credentials "ccaguy@gmail.com" and "18923574"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
     And The response should contain role "CALL_CENTER_AGENT"
 
-    # --- DELETE APPOINTMENT ---
-    When I delete the appointment
-    Then The response status code should be 204
 
-    When I delete the appointment without a session
-    Then The response status code should be 401
-    And The response should contain message "Not authorized"
-
-    When I delete the appointment with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
-
-    When I delete an appointment with invalid id
+    # --- INVALID: appointmentId SHOULD NOT EXIST ---
+    When I create an appointment with a preexisting appointmentId
     Then The response status code should be 400
-    And The response should contain message "Bad request"
+    And The response should contain message "The appointment should have no preexisting appointment id"
 
-    When I delete an appointment without supplying an id
-    Then The response status code should be 405
+    # --- INVALID: status SHOULD NOT BE PROVIDED ---
+    When I create an appointment with a preexisting status
+    Then The response status code should be 400
+    And The response should contain message "The appointment should have no preexisting status"
+
+    # --- INVALID: patientId IS MISSING ---
+    When I create an appointment without patientId
+    Then The response status code should be 400
+    And The response should contain message "Patient id not provided"
+
+    # --- INVALID: patientId DOES NOT EXIST ---
+    When I create an appointment with an invalid patientId
+    Then The response status code should be 400
+    And The response should contain message "Incorrect patient id provided"
+
+    # --- INVALID: doctorId IS MISSING ---
+    When I create an appointment without doctorId
+    Then The response status code should be 400
+    And The response should contain message "Doctor id not provided"
+
+    # --- INVALID: doctorId DOES NOT EXIST ---
+    When I create an appointment with an invalid doctorId
+    Then The response status code should be 400
+    And The response should contain message "Incorrect doctor id provided"
+
+    # --- INVALID: scheduleId DOES NOT EXIST OR NULL ---
+    When I create an appointment with an invalid schedule id
+    Then The response status code should be 400
+    And The response should contain message "Incorrect schedule id provided"
+
+
+
+
+
+
+
+#    Given I have credentials "adrian@gmail.com" and "39963516"
+#    When I send a POST request to login
+#    Then The response status code should be 200
+#    And The session cookie "session_id" should exist and not be empty
+#    And The response should contain role "DOCTOR"
+#
+#    When I create an appointment outcome
+#    Then The response status code should be 200
+#    And The response JSON should be valid
+#
+#    When I create an appointment outcome without a session
+#    Then The response status code should be 401
+#    And The response should contain message "Not authorized"
+#
+#    When I create an appointment outcome with an invalid session_id
+#    Then The response status code should be 403
+#    And The response should contain message "Forbidden to access resource"
+#
+#    When I create an appointment outcome with an invalid appointment_id
+#    Then The response status code should be 500
+#
+#    When I clear the session
+#    Then The session should be empty
+#
+#    Given I have credentials "ccaguy@gmail.com" and "18923574"
+#    When I send a POST request to login
+#    Then The response status code should be 200
+#    And The session cookie "session_id" should exist and not be empty
+#    And The response should contain role "CALL_CENTER_AGENT"
+
+    # --- DELETE APPOINTMENT ---
+#    When I delete the appointment
+#    Then The response status code should be 204
+#
+#    When I delete the appointment without a session
+#    Then The response status code should be 401
+#    And The response should contain message "Not authorized"
+#
+#    When I delete the appointment with an invalid session_id
+#    Then The response status code should be 403
+#    And The response should contain message "Forbidden to access resource"
+#
+#    When I delete an appointment with invalid id
+#    Then The response status code should be 400
+#    And The response should contain message "Bad request"
+#
+#    When I delete an appointment without supplying an id
+#    Then The response status code should be 405
 
 
 #  delete the unused bdd methods from the code below

@@ -278,7 +278,17 @@ public class HealthcareApiSteps {
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/doctors")
                 .then().extract().response();
+
+        Object idObj = response.jsonPath().get("id");
+
+        if (idObj == null) {
+            throw new IllegalStateException("Doctor creation failed, no id returned: " + response.asString());
+        }
+
+        lastDoctorId = ((Number) idObj).intValue();
+        existingDoctorId = lastDoctorId;
     }
+
 
     @Then("The doctor response has correct data")
     public void the_doctor_response_has_correct_data() throws JsonProcessingException {
@@ -327,6 +337,7 @@ public class HealthcareApiSteps {
         dto.setDoctorId(lastDoctorId);
         dto.setPatientId(existingPatientId);
         dto.setScheduleId(lastScheduleId);
+        System.out.println(">>>>> passing lastScheduleId " + lastScheduleId);
         dto.setStatus("SCHEDULED");
 
         requestBody = objectMapper.writeValueAsString(dto);
@@ -337,7 +348,7 @@ public class HealthcareApiSteps {
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/appointments")
                 .then().extract().response();
-
+        System.out.println(">>>>>>>>>>>>>>>>>>>>> " + response.asString());
         Object idObj = response.jsonPath().get("appointmentId");
         if (idObj != null) {
             appointmentId = ((Number) idObj).intValue();
@@ -642,7 +653,16 @@ public class HealthcareApiSteps {
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/patients")
                 .then().extract().response();
+
+        // --- Save the returned patient ID for later use ---
+        Object idObj = response.jsonPath().get("id");
+        if (idObj == null) {
+            throw new IllegalStateException("Patient creation failed, no id returned: " + response.asString());
+        }
+
+        existingPatientId = ((Number) idObj).intValue();
     }
+
 
     @Then("The patient response has correct data")
     public void the_patient_response_has_correct_data() throws JsonProcessingException {
@@ -1443,10 +1463,10 @@ public class HealthcareApiSteps {
 
         // Save values for update tests
         patientFirstName = patient.getFirstName();
-        patientLastName  = patient.getLastName();
-        patientEmail     = patient.getEmail();
-        patientPhone     = patient.getPhone();
-        patientAddress   = patient.getAddress();
+        patientLastName = patient.getLastName();
+        patientEmail = patient.getEmail();
+        patientPhone = patient.getPhone();
+        patientAddress = patient.getAddress();
         patientDateOfBirth = patient.getDateOfBirth();
 
         String body = objectMapper.writeValueAsString(patient);
@@ -2293,6 +2313,7 @@ public class HealthcareApiSteps {
                 .then().extract().response();
 
         lastScheduleId = response.jsonPath().getInt("id");
+        System.out.println(">>>>>>>>>>>>>>> lastScheduleId " + lastScheduleId);
     }
 
     @Then("The doctor schedule response has correct data")
@@ -2302,7 +2323,7 @@ public class HealthcareApiSteps {
         assertNotNull(response.jsonPath().getString("startTime"));
         assertNotNull(response.jsonPath().getString("endTime"));
     }
-    
+
     @When("I create a doctor schedule without a session")
     public void i_create_a_doctor_schedule_without_session() throws JsonProcessingException {
         DoctorScheduleDTO schedule = new DoctorScheduleDTO();
@@ -2622,6 +2643,180 @@ public class HealthcareApiSteps {
                 .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/") // missing scheduleId
                 .then().extract().response();
     }
+
+    // --- MALFORMED SESSION ID ---
+    @When("I create an appointment with a malformed session_id")
+    public void i_create_appointment_with_malformed_session_id() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "INVALID_SESSION")  // deliberately malformed  
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- NON-EXISTING SESSION ID ---
+    @When("I create an appointment with a non-existing session_id")
+    public void i_create_appointment_with_non_existing_session_id() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999")  // arbitrary non-existing session id  
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- ADMIN ROLE FORBIDDEN ---
+    @When("I create an appointment as an admin")
+    public void i_create_appointment_as_admin() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)  // admin session  
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- PREEXISTING APPOINTMENT ID ---
+    @When("I create an appointment with a preexisting appointmentId")
+    public void i_create_appointment_with_preexisting_appointmentId() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setAppointmentId(appointmentId);  // intentionally set
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- PREEXISTING STATUS ---
+    @When("I create an appointment with a preexisting status")
+    public void i_create_appointment_with_preexisting_status() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setStatus("SCHEDULED");  // intentionally set
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- MISSING PATIENT ID ---
+    @When("I create an appointment without patientId")
+    public void i_create_appointment_without_patientId() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleId(lastScheduleId);
+// patientId intentionally omitted
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- INVALID PATIENT ID ---
+    @When("I create an appointment with an invalid patientId")
+    public void i_create_appointment_with_invalid_patientId() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setPatientId(999999);  // non-existing patient
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- MISSING DOCTOR ID ---
+    @When("I create an appointment without doctorId")
+    public void i_create_appointment_without_doctorId() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+// doctorId intentionally omitted
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
+    // --- INVALID DOCTOR ID ---
+    @When("I create an appointment with an invalid doctorId")
+    public void i_create_appointment_with_invalid_doctorId() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(999999);  // non-existing doctor
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+    }
+
 
     private String randomLetters(int length) {
         String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
