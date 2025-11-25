@@ -5,7 +5,7 @@ Feature: Healthcare API - Login Flows
 
   Scenario: Admin logs in, checks session, and logs out successfully
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty

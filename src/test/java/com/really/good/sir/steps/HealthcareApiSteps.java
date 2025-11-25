@@ -31,6 +31,7 @@ public class HealthcareApiSteps {
     private Integer servicePrice;
     private String doctorFirstName;
     private String doctorLastName;
+    private int appointmentId;
     private String doctorEmail;
     private String doctorPhone;
     private Integer doctorSpecializationId;
@@ -53,6 +54,8 @@ public class HealthcareApiSteps {
     private int existingDoctorId;
     private int lastScheduleId;
     private int overlapScheduleId;
+    private int doctorId;
+    private int scheduleId;
 
     @Given("The correct API URL")
     public void the_api_base_url_is() {
@@ -65,8 +68,8 @@ public class HealthcareApiSteps {
         this.baseUrl += endpoint;
     }
 
-    @Given("I have admin credentials {string} and {string}")
-    public void i_have_admin_credentials(String email, String password) {
+    @Given("I have credentials {string} and {string}")
+    public void i_have_credentials(String email, String password) {
         this.requestBody = String.format("{\"email\":\"%s\", \"password\":\"%s\"}", email, password);
     }
 
@@ -144,6 +147,20 @@ public class HealthcareApiSteps {
         }
     }
 
+    @Then("The response JSON should be a valid list")
+    public void the_response_json_should_be_a_valid_list() {
+        try {
+            response.then().contentType("application/json");
+            JsonPath jsonPath = response.jsonPath();
+
+            List<Object> list = jsonPath.getList("$");
+
+            assertThat("Response should contain a JSON list", list, is(not(empty())));
+        } catch (Exception e) {
+            throw new AssertionError("Response is not a valid JSON list: " + e.getMessage());
+        }
+    }
+
     @Then("The service response has correct data")
     public void the_service_response_has_correct_data() throws JsonProcessingException {
         final ServiceDTO serviceDTO = objectMapper.readValue(response.asString(), ServiceDTO.class);
@@ -187,6 +204,7 @@ public class HealthcareApiSteps {
 
         assertThat("Mismatch for field: " + field, actual, equalTo(expectedValue.doubleValue()));
     }
+
 
     @Then("The response should be a valid JSON object for {string}")
     public void the_response_should_be_a_valid_json_object(String entityType) {
@@ -273,6 +291,327 @@ public class HealthcareApiSteps {
         assertThat("Doctor phone mismatch", doctorDTO.getPhone(), equalTo(doctorPhone));
         assertThat("Doctor specializationId mismatch", doctorDTO.getSpecializationId(), equalTo(doctorSpecializationId));
     }
+
+    @When("I clear the session")
+    public void i_clear_the_session() {
+        sessionId = null;
+    }
+
+    @Then("The session should be empty")
+    public void the_session_should_be_empty() {
+        if (sessionId != null) {
+            throw new IllegalStateException("Session was not cleared!");
+        }
+    }
+
+    @When("I find the patient by phone number")
+    public void i_find_the_patient_by_phone_number() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/visits/" + patientPhone)
+                .then().extract().response();
+    }
+
+    @Then("The response JSON should contain the patient data")
+    public void response_json_should_contain_patient_data() {
+        response.then().body("firstName", equalTo(patientFirstName));
+        response.then().body("lastName", equalTo(patientLastName));
+        response.then().body("email", equalTo(patientEmail));
+    }
+
+    // --- CREATE APPOINTMENT ---
+    @When("I create an appointment")
+    public void i_create_an_appointment() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+        dto.setStatus("SCHEDULED");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+
+        Object idObj = response.jsonPath().get("appointmentId");
+        if (idObj != null) {
+            appointmentId = ((Number) idObj).intValue();
+        }
+    }
+
+    @When("I create an appointment without a session")
+    public void i_create_appointment_without_session() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @When("I create an appointment with an invalid session_id")
+    public void i_create_appointment_invalid_session() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @When("I create an appointment with an invalid schedule id")
+    public void i_create_appointment_invalid_schedule() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(99999); // nonexistent
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @When("I update the appointment")
+    public void i_update_the_appointment() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setAppointmentId(appointmentId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(lastScheduleId);
+        dto.setStatus("CONFIRMED");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I create an appointment outcome")
+    public void i_create_appointment_outcome() throws JsonProcessingException {
+        AppointmentOutcomeDTO dto = new AppointmentOutcomeDTO();
+        dto.setAppointmentId(appointmentId);       // use the appointment created earlier
+        dto.setDiagnosis("Test diagnosis");
+        dto.setRecommendations("Test recommendations");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)     // must be a DOCTOR session if your resource requires it
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I create an appointment outcome without a session")
+    public void create_appointment_outcome_without_session() throws JsonProcessingException {
+        AppointmentOutcomeDTO dto = new AppointmentOutcomeDTO();
+        dto.setAppointmentId(appointmentId);
+        dto.setDiagnosis("Test diagnosis");
+        dto.setRecommendations("Test recommendations");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody) // no session cookie
+                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I create an appointment outcome with an invalid session_id")
+    public void create_appointment_outcome_with_invalid_session() throws JsonProcessingException {
+        AppointmentOutcomeDTO dto = new AppointmentOutcomeDTO();
+        dto.setAppointmentId(appointmentId);
+        dto.setDiagnosis("Test diagnosis");
+        dto.setRecommendations("Test recommendations");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999") // invalid session
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I create an appointment outcome with an invalid appointment_id")
+    public void create_appointment_outcome_with_invalid_appointment_id() throws JsonProcessingException {
+        AppointmentOutcomeDTO dto = new AppointmentOutcomeDTO();
+        dto.setAppointmentId(0); // invalid ID
+        dto.setDiagnosis("Test diagnosis");
+        dto.setRecommendations("Test recommendations");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments/0") // invalid appointment ID in path
+                .then().extract().response();
+    }
+
+    @When("I update the appointment without a session")
+    public void i_update_appointment_without_session() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setAppointmentId(appointmentId);
+        dto.setStatus("CONFIRMED");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I update the appointment with an invalid session_id")
+    public void i_update_appointment_invalid_session() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setAppointmentId(appointmentId);
+        dto.setStatus("CONFIRMED");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I update the appointment with an invalid appointment_id")
+    public void i_update_appointment_invalid_id() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setAppointmentId(99999); // nonexistent
+        dto.setStatus("CONFIRMED");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments/99999")
+                .then().extract().response();
+    }
+
+    // --- DELETE APPOINTMENT ---
+    @When("I delete the appointment")
+    public void i_delete_the_appointment() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I delete the appointment without a session")
+    public void i_delete_appointment_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .delete(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I delete the appointment with an invalid session_id")
+    public void i_delete_appointment_invalid_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "999999")
+                .delete(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I delete an appointment with invalid id")
+    public void i_delete_appointment_invalid_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/appointments/99999")
+                .then().extract().response();
+    }
+
+    @When("I delete an appointment without supplying an id")
+    public void i_delete_appointment_without_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/appointments/")
+                .then().extract().response();
+    }
+
+
+    @Then("The response JSON should contain valid appointment data")
+    public void response_json_should_contain_valid_appointment_data() {
+        response.then().body("doctorId", equalTo(lastDoctorId));
+        response.then().body("scheduleId", equalTo(lastScheduleId));
+        response.then().body("patientId", equalTo(existingPatientId));
+        response.then().body("status", equalTo("SCHEDULED"));
+    }
+
+    @When("I fetch doctor schedules for the doctor")
+    public void i_fetch_doctor_schedules_for_doctor() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    @Then("The response should contain the appointment scheduleId")
+    public void response_should_contain_appointment_schedule_id() {
+        response.then().body("scheduleId", hasItem(lastScheduleId));
+    }
+
+    @When("I fetch all appointments")
+    public void i_fetch_all_appointments() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @Then("The response should contain the appointment with correct data")
+    public void response_should_contain_appointment_with_correct_data() {
+        response.then().body("appointmentId", hasItem(appointmentId));
+        response.then().body("doctorId", hasItem(lastDoctorId));
+        response.then().body("scheduleId", hasItem(lastScheduleId));
+        response.then().body("patientId", hasItem(existingPatientId));
+    }
+
 
     @When("I create new patient")
     public void i_create_new_patient() throws JsonProcessingException {

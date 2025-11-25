@@ -5,15 +5,15 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "00000"
+    And I have credentials "greatadmin@gmail.com" and "00000"
     When I send a POST request to login
     Then The response status code should be 401
 
-    And I have admin credentials "greattubby@gmail.com" and "73629175"
+    And I have credentials "greattubby@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 401
 
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -22,7 +22,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and manages service successfully
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -46,7 +46,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and creates the patient
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -107,7 +107,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and updates the patient
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -169,7 +169,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and deletes the patient
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -194,7 +194,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and creates a service
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -227,7 +227,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and updates a service
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -260,7 +260,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and deletes a service
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -288,7 +288,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and creates the doctor
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -333,7 +333,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and updates the doctor
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -381,7 +381,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and deletes the doctor
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -410,7 +410,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and creates a doctor schedule
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -444,7 +444,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and updates a doctor schedule
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -480,7 +480,7 @@ Feature: Healthcare API - Flows
 
   Scenario: Admin logs in and deletes a doctor schedule
     Given The Login endpoint is "/authorization/"
-    And I have admin credentials "greatadmin@gmail.com" and "73629175"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
@@ -507,4 +507,155 @@ Feature: Healthcare API - Flows
     When I delete a doctor schedule without a schedule id
     Then The response status code should be 405
 
+# ----------------------------------------------------------------------------------------------------------------------
 
+#  Scenario: Call center agent creates an appointment
+#
+#    # --- ADMIN LOGIN ---
+#    Given The Login endpoint is "/authorization/"
+#    And I have credentials "greatadmin@gmail.com" and "73629175"
+#    When I send a POST request to login
+#    Then The response status code should be 200
+#    And The session cookie "session_id" should exist and not be empty
+#    And The response should contain role "ADMIN"
+#
+#    Given An existing doctor is available
+#    And An existing patient is available
+#    And An existing doctor schedule is available
+#
+#    When I clear the session
+#    Then The session should be empty
+#
+#    # Given The Login endpoint is "/authorization/"
+#    And I have credentials "ccaguy@gmail.com" and "18923574"
+#    When I send a POST request to login
+#    Then The response status code should be 200
+#    And The session cookie "session_id" should exist and not be empty
+#    And The response should contain role "CALL_CENTER_AGENT"
+#
+#    When I find the patient by phone number
+#    Then The response status code should be 200
+#    And The response JSON should contain the patient data
+#
+#    When I create an appointment
+#    Then The response status code should be 200
+#    And The response JSON should contain valid appointment data
+#
+#    When I fetch doctor schedules for the doctor
+#    Then The response status code should be 200
+#    And The response JSON should be a valid list
+#
+#    When I fetch all appointments
+#    Then The response status code should be 200
+#    And The response should contain the appointment with correct data
+
+  Scenario: Call center agent creates, updates, and deletes an appointment
+
+    # --- ADMIN LOGIN AND SETUP ---
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    Given An existing doctor is available
+    And An existing patient is available
+    And An existing doctor schedule is available
+
+    When I clear the session
+    Then The session should be empty
+
+    Given I have credentials "ccaguy@gmail.com" and "18923574"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "CALL_CENTER_AGENT"
+
+    # --- CREATE APPOINTMENT ---
+    When I create an appointment
+    Then The response status code should be 200
+    And The response JSON should contain valid appointment data
+
+    When I create an appointment without a session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized"
+
+    When I create an appointment with an invalid session_id
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource"
+
+    When I create an appointment with an invalid schedule id
+    Then The response status code should be 400
+    And The response should contain message "Failed to create an appointment | Bad Request"
+
+    When I clear the session
+    Then The session should be empty
+
+    Given I have credentials "adrian@gmail.com" and "39963516"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "DOCTOR"
+
+    When I create an appointment outcome
+    Then The response status code should be 200
+    And The response JSON should be valid
+
+    When I create an appointment outcome without a session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized"
+
+    When I create an appointment outcome with an invalid session_id
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource"
+
+    When I create an appointment outcome with an invalid appointment_id
+    Then The response status code should be 500
+
+    When I clear the session
+    Then The session should be empty
+
+    Given I have credentials "ccaguy@gmail.com" and "18923574"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "CALL_CENTER_AGENT"
+
+    # --- DELETE APPOINTMENT ---
+    When I delete the appointment
+    Then The response status code should be 204
+
+    When I delete the appointment without a session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized"
+
+    When I delete the appointment with an invalid session_id
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource"
+
+    When I delete an appointment with invalid id
+    Then The response status code should be 400
+    And The response should contain message "Bad request"
+
+    When I delete an appointment without supplying an id
+    Then The response status code should be 405
+
+
+#  delete the unused bdd methods from the code below
+
+#    When I update the appointment
+#    Then The response status code should be 200
+#    And The response JSON should contain valid appointment data
+#
+#    When I update the appointment without a session
+#    Then The response status code should be 401
+#    And The response should contain message "Not authorized"
+#
+#    When I update the appointment with an invalid session_id
+#    Then The response status code should be 403
+#    And The response should contain message "Forbidden to access resource"
+#
+#    When I update the appointment with an invalid appointment_id
+#    Then The response status code should be 400
+#    And The response should contain message "Bad request"
