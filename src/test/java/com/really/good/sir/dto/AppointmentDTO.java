@@ -1,41 +1,41 @@
 package com.really.good.sir.dto;
 
 public class AppointmentDTO {
-    private int appointmentId;
-    private int patientId;
-    private int doctorId;
-    private int scheduleId;
+    private Integer appointmentId;
+    private Integer patientId;
+    private Integer doctorId;
+    private Integer scheduleId;
     private String status;
 
-    public int getAppointmentId() {
+    public Integer getAppointmentId() {
         return appointmentId;
     }
 
-    public void setAppointmentId(int appointmentId) {
+    public void setAppointmentId(Integer appointmentId) {
         this.appointmentId = appointmentId;
     }
 
-    public int getPatientId() {
+    public Integer getPatientId() {
         return patientId;
     }
 
-    public void setPatientId(int patientId) {
+    public void setPatientId(Integer patientId) {
         this.patientId = patientId;
     }
 
-    public int getDoctorId() {
+    public Integer getDoctorId() {
         return doctorId;
     }
 
-    public void setDoctorId(int doctorId) {
+    public void setDoctorId(Integer doctorId) {
         this.doctorId = doctorId;
     }
 
-    public int getScheduleId() {
+    public Integer getScheduleId() {
         return scheduleId;
     }
 
-    public void setScheduleId(int scheduleId) {
+    public void setScheduleId(Integer scheduleId) {
         this.scheduleId = scheduleId;
     }
 

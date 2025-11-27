@@ -509,45 +509,45 @@ Feature: Healthcare API - Flows
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-#  Scenario: Call center agent creates an appointment
-#
-#    # --- ADMIN LOGIN ---
-#    Given The Login endpoint is "/authorization/"
-#    And I have credentials "greatadmin@gmail.com" and "73629175"
-#    When I send a POST request to login
-#    Then The response status code should be 200
-#    And The session cookie "session_id" should exist and not be empty
-#    And The response should contain role "ADMIN"
-#
-#    Given An existing doctor is available
-#    And An existing patient is available
-#    And An existing doctor schedule is available
-#
-#    When I clear the session
-#    Then The session should be empty
-#
-#    # Given The Login endpoint is "/authorization/"
-#    And I have credentials "ccaguy@gmail.com" and "18923574"
-#    When I send a POST request to login
-#    Then The response status code should be 200
-#    And The session cookie "session_id" should exist and not be empty
-#    And The response should contain role "CALL_CENTER_AGENT"
-#
-#    When I find the patient by phone number
-#    Then The response status code should be 200
-#    And The response JSON should contain the patient data
-#
-#    When I create an appointment
-#    Then The response status code should be 200
-#    And The response JSON should contain valid appointment data
-#
-#    When I fetch doctor schedules for the doctor
-#    Then The response status code should be 200
-#    And The response JSON should be a valid list
-#
-#    When I fetch all appointments
-#    Then The response status code should be 200
-#    And The response should contain the appointment with correct data
+  Scenario: Call center agent creates an appointment
+
+    # --- ADMIN LOGIN ---
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    Given An existing doctor is available
+    And An existing patient is available
+    And An existing doctor schedule is available
+
+    When I clear the session
+    Then The session should be empty
+
+    # Given The Login endpoint is "/authorization/"
+    And I have credentials "ccaguy@gmail.com" and "18923574"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "CALL_CENTER_AGENT"
+
+    When I find the patient by phone number
+    Then The response status code should be 200
+    And The response JSON should contain the patient data
+
+    When I create an appointment
+    Then The response status code should be 200
+    And The response JSON should contain valid appointment data
+
+    When I fetch doctor schedules for the doctor
+    Then The response status code should be 200
+    And The response JSON should be a valid list
+
+    When I fetch all appointments
+    Then The response status code should be 200
+    And The response should contain the appointment with correct data
 
   Scenario: Call center agent creates, updates, and deletes an appointment
 
@@ -593,8 +593,8 @@ Feature: Healthcare API - Flows
     And The response should contain message "Not authorized"
 
     When I create an appointment with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist."
 
     When I clear the session
     Then The session should be empty
@@ -642,7 +642,7 @@ Feature: Healthcare API - Flows
     # --- INVALID: patientId IS MISSING ---
     When I create an appointment without patientId
     Then The response status code should be 400
-    And The response should contain message "Patient id not provided"
+    And The response should contain message "No patient id provided"
 
     # --- INVALID: patientId DOES NOT EXIST ---
     When I create an appointment with an invalid patientId
@@ -652,19 +652,22 @@ Feature: Healthcare API - Flows
     # --- INVALID: doctorId IS MISSING ---
     When I create an appointment without doctorId
     Then The response status code should be 400
-    And The response should contain message "Doctor id not provided"
+    And The response should contain message "No doctor id provided"
 
     # --- INVALID: doctorId DOES NOT EXIST ---
     When I create an appointment with an invalid doctorId
     Then The response status code should be 400
     And The response should contain message "Incorrect doctor id provided"
 
-    # --- INVALID: scheduleId DOES NOT EXIST OR NULL ---
+    # --- INVALID: scheduleId IS INVALID ---
     When I create an appointment with an invalid schedule id
     Then The response status code should be 400
     And The response should contain message "Incorrect schedule id provided"
 
-
+    # --- INVALID: scheduleId DOES NOT EXIST OR NULL ---
+    When I create an appointment without schedule id
+    Then The response status code should be 400
+    And The response should contain message "No schedule id provided"
 
 
 

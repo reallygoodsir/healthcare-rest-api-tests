@@ -337,8 +337,6 @@ public class HealthcareApiSteps {
         dto.setDoctorId(lastDoctorId);
         dto.setPatientId(existingPatientId);
         dto.setScheduleId(lastScheduleId);
-        System.out.println(">>>>> passing lastScheduleId " + lastScheduleId);
-        dto.setStatus("SCHEDULED");
 
         requestBody = objectMapper.writeValueAsString(dto);
 
@@ -348,7 +346,6 @@ public class HealthcareApiSteps {
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/appointments")
                 .then().extract().response();
-        System.out.println(">>>>>>>>>>>>>>>>>>>>> " + response.asString());
         Object idObj = response.jsonPath().get("appointmentId");
         if (idObj != null) {
             appointmentId = ((Number) idObj).intValue();
@@ -393,7 +390,24 @@ public class HealthcareApiSteps {
         AppointmentDTO dto = new AppointmentDTO();
         dto.setDoctorId(lastDoctorId);
         dto.setPatientId(existingPatientId);
-        dto.setScheduleId(99999); // nonexistent
+        dto.setScheduleId(99999); // invalid
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @When("I create an appointment without schedule id")
+    public void i_create_appointment_no_schedule() throws JsonProcessingException {
+        AppointmentDTO dto = new AppointmentDTO();
+        dto.setDoctorId(lastDoctorId);
+        dto.setPatientId(existingPatientId);
+        dto.setScheduleId(null); // nonexistent
 
         requestBody = objectMapper.writeValueAsString(dto);
 
@@ -2313,7 +2327,6 @@ public class HealthcareApiSteps {
                 .then().extract().response();
 
         lastScheduleId = response.jsonPath().getInt("id");
-        System.out.println(">>>>>>>>>>>>>>> lastScheduleId " + lastScheduleId);
     }
 
     @Then("The doctor schedule response has correct data")
