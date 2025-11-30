@@ -419,25 +419,6 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
-    @When("I update the appointment")
-    public void i_update_the_appointment() throws JsonProcessingException {
-        AppointmentDTO dto = new AppointmentDTO();
-        dto.setAppointmentId(appointmentId);
-        dto.setDoctorId(lastDoctorId);
-        dto.setPatientId(existingPatientId);
-        dto.setScheduleId(lastScheduleId);
-        dto.setStatus("CONFIRMED");
-
-        requestBody = objectMapper.writeValueAsString(dto);
-
-        response = given()
-                .header("Content-Type", "application/json")
-                .cookie("session_id", sessionId)
-                .body(requestBody)
-                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
-                .then().extract().response();
-    }
-
     @When("I create an appointment outcome")
     public void i_create_appointment_outcome() throws JsonProcessingException {
         AppointmentOutcomeDTO dto = new AppointmentOutcomeDTO();
@@ -451,7 +432,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)     // must be a DOCTOR session if your resource requires it
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .put(RestAssured.baseURI + "/appointments")
                 .then().extract().response();
     }
 
@@ -467,7 +448,7 @@ public class HealthcareApiSteps {
         response = given()
                 .header("Content-Type", "application/json")
                 .body(requestBody) // no session cookie
-                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .put(RestAssured.baseURI + "/appointments")
                 .then().extract().response();
     }
 
@@ -484,7 +465,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", "999999") // invalid session
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .put(RestAssured.baseURI + "/appointments")
                 .then().extract().response();
     }
 
@@ -501,56 +482,10 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/appointments/0") // invalid appointment ID in path
+                .put(RestAssured.baseURI + "/appointments")
                 .then().extract().response();
     }
 
-    @When("I update the appointment without a session")
-    public void i_update_appointment_without_session() throws JsonProcessingException {
-        AppointmentDTO dto = new AppointmentDTO();
-        dto.setAppointmentId(appointmentId);
-        dto.setStatus("CONFIRMED");
-
-        requestBody = objectMapper.writeValueAsString(dto);
-
-        response = given()
-                .header("Content-Type", "application/json")
-                .body(requestBody)
-                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
-                .then().extract().response();
-    }
-
-    @When("I update the appointment with an invalid session_id")
-    public void i_update_appointment_invalid_session() throws JsonProcessingException {
-        AppointmentDTO dto = new AppointmentDTO();
-        dto.setAppointmentId(appointmentId);
-        dto.setStatus("CONFIRMED");
-
-        requestBody = objectMapper.writeValueAsString(dto);
-
-        response = given()
-                .header("Content-Type", "application/json")
-                .cookie("session_id", "999999")
-                .body(requestBody)
-                .put(RestAssured.baseURI + "/appointments/" + appointmentId)
-                .then().extract().response();
-    }
-
-    @When("I update the appointment with an invalid appointment_id")
-    public void i_update_appointment_invalid_id() throws JsonProcessingException {
-        AppointmentDTO dto = new AppointmentDTO();
-        dto.setAppointmentId(99999); // nonexistent
-        dto.setStatus("CONFIRMED");
-
-        requestBody = objectMapper.writeValueAsString(dto);
-
-        response = given()
-                .header("Content-Type", "application/json")
-                .cookie("session_id", sessionId)
-                .body(requestBody)
-                .put(RestAssured.baseURI + "/appointments/99999")
-                .then().extract().response();
-    }
 
     // --- DELETE APPOINTMENT ---
     @When("I delete the appointment")
@@ -2828,6 +2763,145 @@ public class HealthcareApiSteps {
                 .post(RestAssured.baseURI + "/appointments")
                 .then().extract().response();
 
+    }
+
+    @When("I get all appointments")
+    public void i_get_all_appointments() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @When("I get all appointments without a session")
+    public void i_get_all_appointments_without_session() {
+        response = given()
+                .get(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @When("I get all appointments with a non-existing session_id")
+    public void i_get_all_appointments_with_non_existing_session() {
+        response = given()
+                .cookie("session_id", "999999")
+                .get(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
+    @When("I get appointment by id")
+    public void i_get_appointment_by_id() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I get appointment by id without a session")
+    public void i_get_appointment_by_id_without_session() {
+        response = given()
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I get appointment by id with a malformed session_id")
+    public void i_get_appointment_by_id_with_malformed_session() {
+        response = given()
+                .cookie("session_id", "abc123")
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I get appointment by id with a non-existing session_id")
+    public void i_get_appointment_by_id_with_non_existing_session() {
+        response = given()
+                .cookie("session_id", "999999999")
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I get appointment with invalid id")
+    public void i_get_appointment_with_invalid_id() {
+        int invalidId = 999999999;
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/appointments/" + invalidId)
+                .then().extract().response();
+    }
+
+    @When("I get appointment outcome by id")
+    public void i_get_appointment_outcome_by_id() {
+        System.out.println(appointmentId);
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId + "/outcome")
+                .then().extract().response();
+    }
+
+    @When("I get appointment outcome by id without a session")
+    public void i_get_appointment_outcome_by_id_without_session() {
+        response = given()
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId + "/outcome")
+                .then().extract().response();
+    }
+
+    @When("I get appointment outcome by id with a malformed session_id")
+    public void i_get_appointment_outcome_by_id_with_malformed_session() {
+        response = given()
+                .cookie("session_id", "abc123")
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId + "/outcome")
+                .then().extract().response();
+    }
+
+    @When("I get appointment outcome by id with a non-existing session_id")
+    public void i_get_appointment_outcome_by_id_with_a_non_existing_session() {
+        response = given()
+                .cookie("session_id", "999999999")
+                .get(RestAssured.baseURI + "/appointments/" + appointmentId + "/outcome")
+                .then().extract().response();
+    }
+
+    @When("I get appointment outcome with invalid id")
+    public void i_get_appointment_outcome_with_invalid_id() {
+        int invalidId = 999999999;
+
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/appointments/" + invalidId + "/outcome")
+                .then().extract().response();
+    }
+
+    @When("I update appointment status to {string}")
+    public void i_update_appointment_status(String status) {
+        System.out.println(status);
+        response = given()
+                .cookie("session_id", sessionId)
+                .patch(RestAssured.baseURI + "/appointments/" + appointmentId + "/" + status)
+                .then().extract().response();
+    }
+
+    @When("I update appointment status to {string} with a malformed session_id")
+    public void i_update_status_with_malformed_session(String status) {
+        response = given()
+                .cookie("session_id", "abc123")
+                .patch(RestAssured.baseURI + "/appointments/" + appointmentId + "/" + status)
+                .then().extract().response();
+    }
+
+    @When("I update appointment status to {string} with a non-existing session_id")
+    public void i_update_status_with_non_existing_session(String status) {
+        response = given()
+                .cookie("session_id", "999999")
+                .patch(RestAssured.baseURI + "/appointments/" + appointmentId + "/" + status)
+                .then().extract().response();
+    }
+
+    @When("I update appointment status with invalid id")
+    public void i_update_status_with_invalid_id() {
+        int invalidId = 999999999;
+        response = given()
+                .cookie("session_id", sessionId)
+                .patch(RestAssured.baseURI + "/appointments/" + invalidId + "/COMPLETED")
+                .then().extract().response();
     }
 
 
