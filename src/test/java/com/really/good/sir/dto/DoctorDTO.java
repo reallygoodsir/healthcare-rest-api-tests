@@ -3,19 +3,19 @@ package com.really.good.sir.dto;
 import java.util.Arrays;
 
 public class DoctorDTO {
-    private int id;
+    private Integer id;
     private String firstName;
     private String lastName;
     private String email;
     private String phone;
-    private int specializationId;
+    private Integer specializationId;
     private byte[] photo;
 
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -51,11 +51,11 @@ public class DoctorDTO {
         this.phone = phone;
     }
 
-    public int getSpecializationId() {
+    public Integer getSpecializationId() {
         return specializationId;
     }
 
-    public void setSpecializationId(int specializationId) {
+    public void setSpecializationId(Integer specializationId) {
         this.specializationId = specializationId;
     }
 

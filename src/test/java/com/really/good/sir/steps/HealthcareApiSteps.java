@@ -4,6 +4,7 @@ import com.really.good.sir.config.ConfigLoader;
 import com.really.good.sir.dto.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.cucumber.cienvironment.internal.com.eclipsesource.json.Json;
 import io.cucumber.java.en.*;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -54,8 +55,14 @@ public class HealthcareApiSteps {
     private int existingDoctorId;
     private int lastScheduleId;
     private int overlapScheduleId;
-    private int doctorId;
-    private int scheduleId;
+    private Integer staleDoctorId;
+    private String staleDoctorFirstName;
+    private String staleDoctorLastName;
+    private String staleDoctorEmail;
+    private String staleDoctorPhone;
+    private Integer staleDoctorSpecializationId;
+    private String staleCredentialId;
+    private byte[] staleDoctorPhoto;
 
     @Given("The correct API URL")
     public void the_api_base_url_is() {
@@ -101,6 +108,11 @@ public class HealthcareApiSteps {
     @Then("The response should contain role {string}")
     public void the_response_should_contain_role(String role) {
         assertThat(response.jsonPath().getString("role"), equalTo(role));
+    }
+
+    @And("The credential id should be saved")
+    public void the_credential_id_should_be_saved() {
+        staleCredentialId = response.jsonPath().getString("credentialId");
     }
 
     @When("I create new service")
@@ -261,7 +273,8 @@ public class HealthcareApiSteps {
         doctorLastName = "Medic" + randomLetters(10);
         doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
         doctorPhone = randomPhoneNumber();
-        doctorSpecializationId = 1;
+        doctorSpecializationId = 2;
+        byte[] doctorPhoto = "dummy photo content".getBytes();
 
         DoctorDTO doctorDTO = new DoctorDTO();
         doctorDTO.setFirstName(doctorFirstName);
@@ -269,6 +282,7 @@ public class HealthcareApiSteps {
         doctorDTO.setEmail(doctorEmail);
         doctorDTO.setPhone(doctorPhone);
         doctorDTO.setSpecializationId(doctorSpecializationId);
+        doctorDTO.setPhoto(doctorPhoto);
 
         requestBody = objectMapper.writeValueAsString(doctorDTO);
 
@@ -285,10 +299,30 @@ public class HealthcareApiSteps {
             throw new IllegalStateException("Doctor creation failed, no id returned: " + response.asString());
         }
 
+
+        staleDoctorFirstName = doctorFirstName;
+        staleDoctorLastName = doctorLastName;
+        staleDoctorEmail = doctorEmail;
+        staleDoctorPhone = doctorPhone;
+        staleDoctorSpecializationId = doctorSpecializationId;
+        staleDoctorPhoto = doctorPhoto;
+        staleDoctorId = (Integer) idObj;
         lastDoctorId = ((Number) idObj).intValue();
         existingDoctorId = lastDoctorId;
     }
 
+
+    @Then("The doctor update response has correct data")
+    public void the_doctor_update_response_has_correct_data() throws JsonProcessingException {
+        final DoctorDTO doctorDTO = objectMapper.readValue(response.asString(), DoctorDTO.class);
+
+        assertThat("Doctor id is incorrect", doctorDTO.getId(), equalTo(staleDoctorId));
+        assertThat("Doctor firstName mismatch", doctorDTO.getFirstName(), equalTo(doctorFirstName));
+        assertThat("Doctor lastName mismatch", doctorDTO.getLastName(), equalTo(doctorLastName));
+        assertThat("Doctor email mismatch", doctorDTO.getEmail(), equalTo(doctorEmail));
+        assertThat("Doctor phone mismatch", doctorDTO.getPhone(), equalTo(doctorPhone));
+        assertThat("Doctor specializationId mismatch", doctorDTO.getSpecializationId(), equalTo(doctorSpecializationId));
+    }
 
     @Then("The doctor response has correct data")
     public void the_doctor_response_has_correct_data() throws JsonProcessingException {
@@ -1767,11 +1801,394 @@ public class HealthcareApiSteps {
 
         response = given()
                 .header("Content-Type", "application/json")
-                .cookie("session_id", "999999") // invalid
+                .cookie("session_id", "b") // invalid
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/doctors")
                 .then().extract().response();
     }
+
+    @When("I create new doctor with empty specialization id")
+    public void i_create_new_doctor_with_empty_specialization_id() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setFirstName("ValidFirst");
+        dto.setLastName("ValidLast");
+        dto.setEmail("validemail@gmail.com");
+        dto.setPhone("1234567890");
+        dto.setSpecializationId(null); // empty
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+
+    @When("I create new doctor with non empty id")
+    public void i_create_new_doctor_with_non_empty_id() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(999); // not allowed on create
+        dto.setFirstName("Test");
+        dto.setLastName("Doctor");
+        dto.setEmail("validemail3@gmail.com");
+        dto.setPhone("1234567899");
+        dto.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor as a non admin user")
+    public void i_create_new_doctor_as_non_admin_user() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setFirstName("TestFirst");
+        dto.setLastName("TestLast");
+        dto.setEmail("nonadminemail@gmail.com");
+        dto.setPhone("1234567800");
+        dto.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with session id that does not exist")
+    public void i_create_new_doctor_with_session_id_that_does_not_exist() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setFirstName("Valid");
+        dto.setLastName("Doctor");
+        dto.setEmail("invalidsession@gmail.com");
+        dto.setPhone("1234567811");
+        dto.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "000000") // nonexistent session
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with specialization id that does not exist")
+    public void i_create_new_doctor_with_specialization_id_that_does_not_exist() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setFirstName("ValidFirst");
+        dto.setLastName("ValidLast");
+        dto.setEmail("invalidspec@gmail.com");
+        dto.setPhone("1234567822");
+        dto.setSpecializationId(99999); // invalid
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with invalid email format")
+    public void i_create_new_doctor_with_invalid_email_format() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setFirstName("ValidFirst");
+        dto.setLastName("ValidLast");
+        dto.setEmail("invalid-email-format"); // invalid
+        dto.setPhone("1234567833");
+        dto.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I create new doctor with invalid phone format")
+    public void i_create_new_doctor_with_invalid_phone_format() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setFirstName("ValidFirst");
+        dto.setLastName("ValidLast");
+        dto.setEmail("validphoneformat@gmail.com");
+        dto.setPhone("12-34-ABCD"); // invalid format
+        dto.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+    @When("I create new doctor with invalid photo")
+    public void i_create_new_doctor_with_invalid_photo() throws JsonProcessingException {
+        doctorFirstName = "DoctorTest" + randomLetters(10);
+        doctorLastName = "Medic" + randomLetters(10);
+        doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
+        doctorPhone = randomPhoneNumber();
+        doctorSpecializationId = 1;
+
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName(doctorFirstName);
+        doctorDTO.setLastName(doctorLastName);
+        doctorDTO.setEmail(doctorEmail);
+        doctorDTO.setPhone(doctorPhone);
+        doctorDTO.setSpecializationId(doctorSpecializationId);
+        doctorDTO.setPhoto(new byte[0]);
+
+        String body = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(body)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+
+
+    @When("I update the doctor with session id that does not exist")
+    public void i_update_the_doctor_with_session_id_that_does_not_exist() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName("UpdatedFirst");
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "000000")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor as a non admin user")
+    public void i_update_the_doctor_as_a_non_admin_user() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName("UpdatedNonAdmin");
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor with empty id")
+    public void i_update_the_doctor_with_empty_id() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(null); // empty id
+        dto.setFirstName("First");
+        dto.setLastName("Last");
+        dto.setEmail("update@mail.com");
+        dto.setPhone("1234567890");
+        dto.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor with id that does not exist")
+    public void i_update_the_doctor_with_id_that_does_not_exist() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(9999999);
+        dto.setFirstName("First");
+        dto.setLastName("Last");
+        dto.setEmail("update@mail.com");
+        dto.setPhone("1234567890");
+        dto.setSpecializationId(1);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor with empty specialization id")
+    public void i_update_the_doctor_with_empty_specialization_id() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(null); // empty
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor with specialization id that does not exist")
+    public void i_update_the_doctor_with_specialization_id_that_does_not_exist() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(99999);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor with invalid email format")
+    public void i_update_the_doctor_with_invalid_email_format() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail("invalid-email");
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor with invalid phone format")
+    public void i_update_the_doctor_with_invalid_phone_format() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone("ABC-12345"); // invalid
+        dto.setSpecializationId(doctorSpecializationId);
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor with invalid photo")
+    public void i_update_the_doctor_with_invalid_photo() throws JsonProcessingException {
+        DoctorDTO dto = new DoctorDTO();
+        dto.setId(lastDoctorId);
+        dto.setFirstName(doctorFirstName);
+        dto.setLastName(doctorLastName);
+        dto.setEmail(doctorEmail);
+        dto.setPhone(doctorPhone);
+        dto.setSpecializationId(doctorSpecializationId);
+        dto.setPhoto(new byte[0]);
+
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+
+    @When("I delete the doctor with session id that does not exist")
+    public void i_delete_the_doctor_with_session_id_that_does_not_exist() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "000000")
+                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I delete the doctor as a non admin user")
+    public void i_delete_the_doctor_as_a_non_admin_user() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I delete a doctor with empty id")
+    public void i_delete_a_doctor_with_empty_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctors/")
+                .then().extract().response();
+    }
+
+    @When("I delete a doctor with id that does not exist")
+    public void i_delete_a_doctor_with_id_that_does_not_exist() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(RestAssured.baseURI + "/doctors/0")
+                .then().extract().response();
+    }
+
+
 
     @When("I create new doctor with empty first name")
     public void i_create_new_doctor_with_empty_first_name() throws JsonProcessingException {
@@ -1870,12 +2287,17 @@ public class HealthcareApiSteps {
 
     @When("I create new doctor with duplicate phone")
     public void i_create_new_doctor_with_duplicate_phone() throws JsonProcessingException {
+        doctorFirstName = "DoctorTest" + randomLetters(10);
+        doctorLastName = "Medic" + randomLetters(10);
+        doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
+        doctorSpecializationId = 2;
+
         DoctorDTO doctorDTO = new DoctorDTO();
-        doctorDTO.setFirstName("AnotherFirst");
-        doctorDTO.setLastName("AnotherLast");
-        doctorDTO.setEmail("uniqueemail2@gmail.com");
-        doctorDTO.setPhone(doctorPhone); // duplicate
-        doctorDTO.setSpecializationId(1);
+        doctorDTO.setFirstName(doctorFirstName);
+        doctorDTO.setLastName(doctorLastName);
+        doctorDTO.setEmail(doctorEmail);
+        doctorDTO.setPhone(doctorPhone);
+        doctorDTO.setSpecializationId(doctorSpecializationId);
 
         requestBody = objectMapper.writeValueAsString(doctorDTO);
 
@@ -1963,29 +2385,33 @@ public class HealthcareApiSteps {
         otherDoctorPhone = doctorDTO.getPhone();
     }
 
-    @When("I update the doctor's first name")
-    public void i_update_the_doctor_first_name() throws JsonProcessingException {
-        DoctorDTO doctorDTO = new DoctorDTO();
-        doctorDTO.setId(lastDoctorId);
+    @When("I update the doctor")
+    public void i_update_the_doctor() throws JsonProcessingException {
+        doctorFirstName = "DoctorTest" + randomLetters(10);
+        doctorLastName = "Medic" + randomLetters(10);
+        doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
+        doctorPhone = randomPhoneNumber();
+        doctorSpecializationId = 2;
+        byte[] doctorPhoto = "new dummy photo content".getBytes();
 
-        String newFirstName = "UpdatedFirst" + randomLetters(5);
-        doctorDTO.setFirstName(newFirstName);
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setId(staleDoctorId);
+        doctorDTO.setFirstName(doctorFirstName);
         doctorDTO.setLastName(doctorLastName);
         doctorDTO.setEmail(doctorEmail);
         doctorDTO.setPhone(doctorPhone);
         doctorDTO.setSpecializationId(doctorSpecializationId);
-
-        requestBody = objectMapper.writeValueAsString(doctorDTO);
+        doctorDTO.setPhoto(doctorPhoto);
+        String body = objectMapper.writeValueAsString(doctorDTO);
 
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
-                .body(requestBody)
+                .body(body)
                 .put(RestAssured.baseURI + "/doctors")
                 .then().extract().response();
-
-        doctorFirstName = newFirstName;
     }
+
 
 
     // Update without session
@@ -2023,7 +2449,7 @@ public class HealthcareApiSteps {
 
         response = given()
                 .header("Content-Type", "application/json")
-                .cookie("session_id", "999999")
+                .cookie("session_id", "b")
                 .body(requestBody)
                 .put(RestAssured.baseURI + "/doctors")
                 .then().extract().response();
@@ -2092,6 +2518,40 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+    @Given("Another doctor exists")
+    public void another_doctor_exists() throws JsonProcessingException{
+        doctorFirstName = "DoctorTest" + randomLetters(10);
+        doctorLastName = "Medic" + randomLetters(10);
+        doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
+        doctorPhone = randomPhoneNumber();
+        doctorSpecializationId = 2;
+        byte[] doctorPhoto = "dummy photo content".getBytes();
+
+        DoctorDTO doctorDTO = new DoctorDTO();
+        doctorDTO.setFirstName(doctorFirstName);
+        doctorDTO.setLastName(doctorLastName);
+        doctorDTO.setEmail(doctorEmail);
+        doctorDTO.setPhone(doctorPhone);
+        doctorDTO.setSpecializationId(doctorSpecializationId);
+        doctorDTO.setPhoto(doctorPhoto);
+
+        requestBody = objectMapper.writeValueAsString(doctorDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+
+        Object idObj = response.jsonPath().get("id");
+
+        if (idObj == null) {
+            throw new IllegalStateException("Doctor creation failed, no id returned: " + response.asString());
+        }
+        lastDoctorId = ((Number) idObj).intValue();
+        existingDoctorId = lastDoctorId;
+    }
     // Duplicate email
     @When("I update the doctor with duplicate email")
     public void i_update_doctor_with_duplicate_email() throws JsonProcessingException {
@@ -2099,9 +2559,10 @@ public class HealthcareApiSteps {
         dto.setId(lastDoctorId);
         dto.setFirstName(doctorFirstName);
         dto.setLastName(doctorLastName);
-        dto.setEmail(otherDoctorEmail); // from another doctor
+        dto.setEmail(staleDoctorEmail);
         dto.setPhone(doctorPhone);
         dto.setSpecializationId(doctorSpecializationId);
+        dto.setPhoto(staleDoctorPhoto);
 
         requestBody = objectMapper.writeValueAsString(dto);
 
@@ -2142,7 +2603,7 @@ public class HealthcareApiSteps {
         dto.setFirstName(doctorFirstName);
         dto.setLastName(doctorLastName);
         dto.setEmail(doctorEmail);
-        dto.setPhone(otherDoctorPhone); // from another doctor
+        dto.setPhone(staleDoctorPhone); // from another doctor
         dto.setSpecializationId(doctorSpecializationId);
 
         requestBody = objectMapper.writeValueAsString(dto);
@@ -2160,7 +2621,7 @@ public class HealthcareApiSteps {
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
-                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .delete(RestAssured.baseURI + "/doctors/" + staleDoctorId)
                 .then().extract().response();
     }
 
@@ -2168,7 +2629,7 @@ public class HealthcareApiSteps {
     public void i_delete_the_doctor_without_a_session() {
         response = given()
                 .header("Content-Type", "application/json")
-                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .delete(RestAssured.baseURI + "/doctors/" + staleDoctorId)
                 .then().extract().response();
     }
 
@@ -2176,8 +2637,8 @@ public class HealthcareApiSteps {
     public void i_delete_the_doctor_with_invalid_session_id() {
         response = given()
                 .header("Content-Type", "application/json")
-                .cookie("session_id", "999999") // invalid session
-                .delete(RestAssured.baseURI + "/doctors/" + lastDoctorId)
+                .cookie("session_id", "b") // invalid session
+                .delete(RestAssured.baseURI + "/doctors/" + staleDoctorId)
                 .then().extract().response();
     }
 
@@ -2901,6 +3362,142 @@ public class HealthcareApiSteps {
         response = given()
                 .cookie("session_id", sessionId)
                 .patch(RestAssured.baseURI + "/appointments/" + invalidId + "/COMPLETED")
+                .then().extract().response();
+    }
+
+    // GET doctor by id
+    @When("I get the doctor by id")
+    public void i_get_the_doctor_by_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctors/" + existingDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I get the doctor by id without session")
+    public void i_get_the_doctor_by_id_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/doctors/" + existingDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I get the doctor by id with invalid session")
+    public void i_get_the_doctor_by_id_with_invalid_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "invalid_session")
+                .get(RestAssured.baseURI + "/doctors/" + existingDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I get the doctor by id with non-existent id")
+    public void i_get_the_doctor_by_id_with_nonexistent_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctors/999999")
+                .then().extract().response();
+    }
+
+    // GET all doctors
+    @When("I get all doctors")
+    public void i_get_all_doctors() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I get all doctors without session")
+    public void i_get_all_doctors_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    @When("I get all doctors with invalid session")
+    public void i_get_all_doctors_with_invalid_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "invalid_session")
+                .get(RestAssured.baseURI + "/doctors")
+                .then().extract().response();
+    }
+
+    // GET doctors by service
+    @When("I get doctors by service")
+    public void i_get_doctors_by_service() {
+        System.out.println(lastServiceId);
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctors/service/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    @When("I get doctors by service without session")
+    public void i_get_doctors_by_service_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/doctors/service/" + staleDoctorSpecializationId)
+                .then().extract().response();
+    }
+
+    @When("I get doctors by service with invalid session")
+    public void i_get_doctors_by_service_with_invalid_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "invalid_session")
+                .get(RestAssured.baseURI + "/doctors/service/" + staleDoctorSpecializationId)
+                .then().extract().response();
+    }
+
+    @When("I get doctors by service with non-existent service id")
+    public void i_get_doctors_by_service_with_nonexistent_service() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctors/service/999999")
+                .then().extract().response();
+    }
+
+    // GET doctor id by credential
+    @When("I get the doctor id by credential")
+    public void i_get_doctor_id_by_credential() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctors/credential/" + staleCredentialId)
+                .then().extract().response();
+    }
+
+    @When("I get the doctor id by credential without session")
+    public void i_get_doctor_id_by_credential_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/doctors/credential/")
+                .then().extract().response();
+    }
+
+    @When("I get the doctor id by credential with invalid session")
+    public void i_get_doctor_id_by_credential_with_invalid_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "invalid_session")
+                .get(RestAssured.baseURI + "/doctors/credential/" + "b")
+                .then().extract().response();
+    }
+
+    @When("I get the doctor id by credential with wrong credential id")
+    public void i_get_doctor_id_by_credential_with_wrong_credential_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctors/credential/999999") // wrong credential
                 .then().extract().response();
     }
 
