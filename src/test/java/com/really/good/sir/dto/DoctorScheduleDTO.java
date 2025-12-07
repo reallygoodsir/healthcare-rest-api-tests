@@ -1,25 +1,25 @@
     package com.really.good.sir.dto;
 
     public class DoctorScheduleDTO {
-        private int id;
-        private int doctorId;
+        private Integer id;
+        private Integer doctorId;
         private String scheduleDate;
         private String startTime;
         private String endTime;
 
-        public int getId() {
+        public Integer getId() {
             return id;
         }
 
-        public void setId(int id) {
+        public void setId(Integer id) {
             this.id = id;
         }
 
-        public int getDoctorId() {
+        public Integer getDoctorId() {
             return doctorId;
         }
 
-        public void setDoctorId(int doctorId) {
+        public void setDoctorId(Integer doctorId) {
             this.doctorId = doctorId;
         }
 

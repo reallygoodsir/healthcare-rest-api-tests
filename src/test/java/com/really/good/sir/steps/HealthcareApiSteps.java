@@ -2725,6 +2725,42 @@ public class HealthcareApiSteps {
         lastScheduleId = response.jsonPath().getInt("id");
     }
 
+    @When("I create a doctor schedule with empty doctor id")
+    public void i_create_a_doctor_schedule_with_empty_doctor_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setDoctorId(null);
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("10:00");
+        dto.setEndTime("11:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/schedules")
+                .then().extract().response();
+    }
+
+    @When("I create a doctor schedule with non existing doctor id")
+    public void i_create_a_doctor_schedule_with_non_existing_doctor_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setDoctorId(999999); // invalid / non-existing id
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("10:00");
+        dto.setEndTime("11:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/schedules")
+                .then().extract().response();
+    }
+
     @Then("The doctor schedule response has correct data")
     public void the_doctor_schedule_response_has_correct_data() {
         assertThat(response.jsonPath().getInt("doctorId"), equalTo(lastDoctorId));
@@ -3004,6 +3040,82 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+    @When("I update the doctor schedule with empty schedule id")
+    public void i_update_doctor_schedule_with_empty_schedule_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setDoctorId(existingDoctorId); // valid doctor
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("09:00");
+        dto.setEndTime("10:00");
+        // ID intentionally NOT set → empty/null
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/schedule")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor schedule with non existing schedule id")
+    public void i_update_doctor_schedule_with_non_existing_schedule_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(99999999); // definitely not existing
+        dto.setDoctorId(existingDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("09:00");
+        dto.setEndTime("10:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/schedule")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor schedule with empty doctor id")
+    public void i_update_doctor_schedule_with_empty_doctor_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId); // valid schedule id
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("09:00");
+        dto.setEndTime("10:00");
+        // doctorId intentionally NOT set → null
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/schedule")
+                .then().extract().response();
+    }
+
+    @When("I update the doctor schedule with non existing doctor id")
+    public void i_update_doctor_schedule_with_non_existing_doctor_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(99999999); // definitely not existing doctor
+        dto.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        dto.setStartTime("09:00");
+        dto.setEndTime("10:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/schedule")
+                .then().extract().response();
+    }
+
     // Delete schedule normally
     @When("I delete the doctor schedule")
     public void i_delete_the_doctor_schedule() {
@@ -3033,6 +3145,7 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+
     // Delete schedule with invalid ID
     @When("I delete a doctor schedule with invalid id")
     public void i_delete_doctor_schedule_with_invalid_id() {
@@ -3052,6 +3165,65 @@ public class HealthcareApiSteps {
                 .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/") // missing scheduleId
                 .then().extract().response();
     }
+
+    // GET schedules by doctor
+    @When("I get schedules by doctor")
+    public void i_get_schedules_by_doctor() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    // GET schedules by doctor without session
+    @When("I get schedules by doctor without a session")
+    public void i_get_schedules_by_doctor_without_a_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    // GET schedules by doctor with invalid session
+    @When("I get schedules by doctor with invalid session_id")
+    public void i_get_schedules_by_doctor_with_invalid_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "9999999") // guaranteed invalid
+                .get(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId)
+                .then().extract().response();
+    }
+
+    // GET schedules with appointments (for doctor)
+    @When("I get schedules with appointments")
+    public void i_get_schedules_with_appointments() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/doctor-schedules/appointments/" + staleDoctorId)
+                .then().extract().response();
+    }
+
+    // GET schedules with appointments without session
+    @When("I get schedules with appointments without a session")
+    public void i_get_schedules_with_appointments_without_a_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/doctor-schedules/appointments/" + staleDoctorId)
+                .then().extract().response();
+    }
+
+    // GET schedules with appointments with invalid session
+    @When("I get schedules with appointments with invalid session_id")
+    public void i_get_schedules_with_appointments_with_invalid_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "9999999")
+                .get(RestAssured.baseURI + "/doctor-schedules/appointments/" + staleDoctorId)
+                .then().extract().response();
+    }
+
 
     // --- MALFORMED SESSION ID ---
     @When("I create an appointment with a malformed session_id")

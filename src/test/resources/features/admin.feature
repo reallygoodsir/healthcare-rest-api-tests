@@ -319,6 +319,14 @@ Feature: Healthcare API - Flows
     Then The response status code should be 400
     And The response should contain message "Time overlaps with an existing schedule"
 
+    When I create a doctor schedule with empty doctor id
+    Then The response status code should be 400
+    And The response should contain message "Doctor id must not be empty when existing doctor is deleted"
+
+    When I create a doctor schedule with non existing doctor id
+    Then The response status code should be 400
+    And The response should contain message "Doctor id does not exist"
+
 
   Scenario: Admin logs in and updates a doctor schedule
     Given The Login endpoint is "/authorization/"
@@ -356,6 +364,23 @@ Feature: Healthcare API - Flows
     Then The response status code should be 400
     And The response should contain message "Time overlaps with an existing schedule"
 
+    When I update the doctor schedule with empty schedule id
+    Then The response status code should be 400
+    And The response should contain message "Schedule id is empty"
+
+    When I update the doctor schedule with non existing schedule id
+    Then The response status code should be 400
+    And The response should contain message "Schedule id does not exist"
+
+    When I update the doctor schedule with empty doctor id
+    Then The response status code should be 400
+    And The response should contain message "Doctor id must not be empty when existing doctor is deleted"
+
+    When I update the doctor schedule with non existing doctor id
+    Then The response status code should be 400
+    And The response should contain message "Doctor id does not exist"
+
+
   Scenario: Admin logs in and deletes a doctor schedule
     Given The Login endpoint is "/authorization/"
     And I have credentials "greatadmin@gmail.com" and "73629175"
@@ -372,18 +397,70 @@ Feature: Healthcare API - Flows
 
     When I delete the doctor schedule without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I delete the doctor schedule with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I delete a doctor schedule with invalid id
     Then The response status code should be 400
-    And The response should contain message "Incorrect/absent id"
+    And The response should contain message "Schedule id does not exist"
 
-    When I delete a doctor schedule without a schedule id
-    Then The response status code should be 405
+
+  Scenario: Admin gets schedules by doctor
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    Given An existing doctor is available
+    And An existing doctor schedule is available
+
+    When I get schedules by doctor
+    Then The response status code should be 200
+    And The response JSON should be valid
+
+    When I get schedules by doctor without a session
+    Then The response status code should be 401
+    And The response should contain message "Session id is empty"
+
+    When I get schedules by doctor with invalid session_id
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource"
+
+    When I delete the doctor schedule
+    Then The response status code should be 204
+
+
+  Scenario: Doctor gets schedules with appointments
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "adrian@gmail.com" and "39963516"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "DOCTOR"
+
+    Given An existing doctor is available
+    And An existing doctor schedule is available
+
+    When I get schedules with appointments
+    Then The response status code should be 200
+    And The response JSON should be valid
+
+    When I get schedules with appointments without a session
+    Then The response status code should be 401
+    And The response should contain message "Session id is empty"
+
+    When I get schedules with appointments with invalid session_id
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource"
+
+    # Clean up
+    When I delete the doctor schedule
+    Then The response status code should be 204
 
 # ----------------------------------------------------------------------------------------------------------------------
 
