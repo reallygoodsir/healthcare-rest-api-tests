@@ -32,7 +32,7 @@ public class HealthcareApiSteps {
     private Integer servicePrice;
     private String doctorFirstName;
     private String doctorLastName;
-    private int appointmentId;
+    private Integer appointmentId;
     private String doctorEmail;
     private String doctorPhone;
     private Integer doctorSpecializationId;
@@ -50,11 +50,11 @@ public class HealthcareApiSteps {
     private String otherPatientPhone;
     private String otherDoctorPhone;
     private String otherDoctorEmail;
-    private int patientId;
-    private int lastDoctorId;
-    private int existingDoctorId;
-    private int lastScheduleId;
-    private int overlapScheduleId;
+    private Integer patientId;
+    private Integer lastDoctorId;
+    private Integer existingDoctorId;
+    private Integer lastScheduleId;
+    private Integer overlapScheduleId;
     private Integer staleDoctorId;
     private String staleDoctorFirstName;
     private String staleDoctorLastName;
@@ -2674,13 +2674,14 @@ public class HealthcareApiSteps {
         doctor.setEmail("doctor" + randomLetters(6) + "@gmail.com");
         doctor.setPhone("555" + (1000000 + (ts % 9000000)));
         doctor.setSpecializationId(1);
+        byte[] doctorPhoto = "dummy photo content".getBytes();
+        doctor.setPhoto(doctorPhoto);
 
         // Save values if needed later
         doctorFirstName = doctor.getFirstName();
         doctorLastName = doctor.getLastName();
         doctorEmail = doctor.getEmail();
         doctorPhone = doctor.getPhone();
-
         String body = objectMapper.writeValueAsString(doctor);
 
         response = given()
@@ -2701,6 +2702,7 @@ public class HealthcareApiSteps {
         }
 
         lastDoctorId = ((Number) idObj).intValue();
+        staleDoctorId = lastDoctorId;
         existingDoctorId = lastDoctorId;
     }
 
@@ -2739,7 +2741,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .post(RestAssured.baseURI + "/schedules")
+                .post(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
     }
 
@@ -2757,7 +2759,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .post(RestAssured.baseURI + "/schedules")
+                .post(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
     }
 
@@ -2799,6 +2801,24 @@ public class HealthcareApiSteps {
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", "999999")
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+    }
+
+    @When("I create a doctor schedule with a malformed session_id")
+    public void i_create_a_doctor_schedule_with_malformed_session_id() throws JsonProcessingException {
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        schedule.setStartTime("10:00");
+        schedule.setEndTime("12:00");
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b")
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
@@ -2920,24 +2940,23 @@ public class HealthcareApiSteps {
         overlapScheduleId = ((Number) idObj).intValue();
     }
 
-    // Standard update
-    // Standard update
+
     @When("I update the doctor schedule")
     public void i_update_the_doctor_schedule() throws JsonProcessingException {
         DoctorScheduleDTO dto = new DoctorScheduleDTO();
         dto.setId(lastScheduleId);
         dto.setDoctorId(lastDoctorId);
-        dto.setScheduleDate(LocalDate.now().plusDays(2).toString());
+        dto.setScheduleDate(LocalDate.now().plusDays(5).toString());
         dto.setStartTime("13:00");
         dto.setEndTime("15:00");
-
+        System.out.println(dto);
         requestBody = objectMapper.writeValueAsString(dto);
 
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .put(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
     }
 
@@ -2980,13 +2999,32 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+    @When("I update the doctor schedule with a malformed session_id")
+    public void i_update_with_malformed_session_id() throws JsonProcessingException {
+        DoctorScheduleDTO dto = new DoctorScheduleDTO();
+        dto.setId(lastScheduleId);
+        dto.setDoctorId(lastDoctorId);
+        dto.setScheduleDate(LocalDate.now().plusDays(2).toString());
+        dto.setStartTime("13:00");
+        dto.setEndTime("15:00");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/doctor-schedules") // ✅ no /{id}
+                .then().extract().response();
+    }
+
     // Update with past date
     @When("I update the doctor schedule with a past date")
     public void i_update_doctor_schedule_with_past_date() throws JsonProcessingException {
         DoctorScheduleDTO dto = new DoctorScheduleDTO();
         dto.setId(lastScheduleId);
         dto.setDoctorId(lastDoctorId);
-        dto.setScheduleDate(LocalDate.now().minusDays(2).toString());
+        dto.setScheduleDate(LocalDate.now().minusDays(50).toString());
         dto.setStartTime("09:00");
         dto.setEndTime("11:00");
 
@@ -3055,7 +3093,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/schedule")
+                .put(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
     }
 
@@ -3074,7 +3112,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/schedule")
+                .put(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
     }
 
@@ -3093,7 +3131,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/schedule")
+                .put(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
     }
 
@@ -3112,7 +3150,7 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
                 .body(requestBody)
-                .put(RestAssured.baseURI + "/schedule")
+                .put(RestAssured.baseURI + "/doctor-schedules")
                 .then().extract().response();
     }
 
@@ -3141,6 +3179,15 @@ public class HealthcareApiSteps {
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", "9999999")
+                .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/" + lastScheduleId)
+                .then().extract().response();
+    }
+
+    @When("I delete the doctor schedule with a malformed session_id")
+    public void i_delete_the_doctor_schedule_with_malformed_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b")
                 .delete(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId + "/" + lastScheduleId)
                 .then().extract().response();
     }
@@ -3186,7 +3233,7 @@ public class HealthcareApiSteps {
     }
 
     // GET schedules by doctor with invalid session
-    @When("I get schedules by doctor with invalid session_id")
+    @When("I get schedules by doctor with an invalid session_id")
     public void i_get_schedules_by_doctor_with_invalid_session_id() {
         response = given()
                 .header("Content-Type", "application/json")
@@ -3195,9 +3242,19 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+    @When("I get schedules by doctor with a malformed session_id")
+    public void i_get_schedules_by_doctor_with_malformed_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b") // guaranteed invalid
+                .get(RestAssured.baseURI + "/doctor-schedules/" + lastDoctorId)
+                .then().extract().response();
+    }
+
     // GET schedules with appointments (for doctor)
     @When("I get schedules with appointments")
     public void i_get_schedules_with_appointments() {
+        System.out.println(staleDoctorId);
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId)
@@ -3215,11 +3272,20 @@ public class HealthcareApiSteps {
     }
 
     // GET schedules with appointments with invalid session
-    @When("I get schedules with appointments with invalid session_id")
+    @When("I get schedules with appointments with an invalid session_id")
     public void i_get_schedules_with_appointments_with_invalid_session_id() {
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", "9999999")
+                .get(RestAssured.baseURI + "/doctor-schedules/appointments/" + staleDoctorId)
+                .then().extract().response();
+    }
+
+    @When("I get schedules with appointments with a malformed session_id")
+    public void i_get_schedules_with_appointments_with_malformed_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b")
                 .get(RestAssured.baseURI + "/doctor-schedules/appointments/" + staleDoctorId)
                 .then().extract().response();
     }

@@ -301,11 +301,15 @@ Feature: Healthcare API - Flows
 
     When I create a doctor schedule without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I create a doctor schedule with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I create a doctor schedule with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I create a doctor schedule with a past date
     Then The response status code should be 400
@@ -321,11 +325,23 @@ Feature: Healthcare API - Flows
 
     When I create a doctor schedule with empty doctor id
     Then The response status code should be 400
-    And The response should contain message "Doctor id must not be empty when existing doctor is deleted"
+    And The response should contain message "Doctor id must not be empty when new schedule is created"
 
     When I create a doctor schedule with non existing doctor id
     Then The response status code should be 400
     And The response should contain message "Doctor id does not exist"
+
+    When I clear the session
+    Then The session should be empty
+    Given I have credentials "ccaguy@gmail.com" and "18923574"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "CALL_CENTER_AGENT"
+
+    When I create a valid doctor schedule
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource. Role is not allowed."
 
 
   Scenario: Admin logs in and updates a doctor schedule
@@ -346,11 +362,15 @@ Feature: Healthcare API - Flows
 
     When I update the doctor schedule without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I update the doctor schedule with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I update the doctor schedule with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I update the doctor schedule with a past date
     Then The response status code should be 400
@@ -366,7 +386,7 @@ Feature: Healthcare API - Flows
 
     When I update the doctor schedule with empty schedule id
     Then The response status code should be 400
-    And The response should contain message "Schedule id is empty"
+    And The response should contain message "Doctor schedule id must not be empty when existing schedule is updated"
 
     When I update the doctor schedule with non existing schedule id
     Then The response status code should be 400
@@ -374,11 +394,23 @@ Feature: Healthcare API - Flows
 
     When I update the doctor schedule with empty doctor id
     Then The response status code should be 400
-    And The response should contain message "Doctor id must not be empty when existing doctor is deleted"
+    And The response should contain message "Doctor id must not be empty when existing doctor is updated"
 
     When I update the doctor schedule with non existing doctor id
     Then The response status code should be 400
     And The response should contain message "Doctor id does not exist"
+
+    When I clear the session
+    Then The session should be empty
+    Given I have credentials "ccaguy@gmail.com" and "18923574"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "CALL_CENTER_AGENT"
+
+    When I update the doctor schedule
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource. Role is not allowed."
 
 
   Scenario: Admin logs in and deletes a doctor schedule
@@ -389,7 +421,7 @@ Feature: Healthcare API - Flows
     And The session cookie "session_id" should exist and not be empty
     And The response should contain role "ADMIN"
 
-    Given An existing doctor is available
+    Given An existing doctor is available for schedule
     And An existing doctor schedule is available
 
     When I delete the doctor schedule
@@ -401,11 +433,28 @@ Feature: Healthcare API - Flows
 
     When I delete the doctor schedule with an invalid session_id
     Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I delete the doctor schedule with a malformed session_id
+    Then The response status code should be 401
     And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I delete a doctor schedule with invalid id
     Then The response status code should be 400
     And The response should contain message "Schedule id does not exist"
+
+    When I clear the session
+    Then The session should be empty
+    Given I have credentials "ccaguy@gmail.com" and "18923574"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "CALL_CENTER_AGENT"
+
+    When I delete the doctor schedule
+    Then The response status code should be 403
+    And The response should contain message "Forbidden to access resource. Role is not allowed."
+
 
 
   Scenario: Admin gets schedules by doctor
@@ -416,20 +465,44 @@ Feature: Healthcare API - Flows
     And The session cookie "session_id" should exist and not be empty
     And The response should contain role "ADMIN"
 
-    Given An existing doctor is available
+    Given An existing doctor is available for schedule
     And An existing doctor schedule is available
 
     When I get schedules by doctor
     Then The response status code should be 200
-    And The response JSON should be valid
+    And The response JSON should be a valid list
 
     When I get schedules by doctor without a session
     Then The response status code should be 401
     And The response should contain message "Session id is empty"
 
-    When I get schedules by doctor with invalid session_id
+    When I get schedules by doctor with an invalid session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I get schedules by doctor with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
+    When I clear the session
+    Then The session should be empty
+    Given I have credentials "adrian@gmail.com" and "39963516"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "DOCTOR"
+
+    When I get schedules by doctor
     Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    And The response should contain message "Forbidden to access resource. Role is not allowed."
+
+    When I clear the session
+    Then The session should be empty
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
 
     When I delete the doctor schedule
     Then The response status code should be 204
@@ -437,29 +510,52 @@ Feature: Healthcare API - Flows
 
   Scenario: Doctor gets schedules with appointments
     Given The Login endpoint is "/authorization/"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    Given An existing doctor is available for schedule
+    And An existing doctor schedule is available
+
+    When I clear the session
+    Then The session should be empty
     And I have credentials "adrian@gmail.com" and "39963516"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
     And The response should contain role "DOCTOR"
 
-    Given An existing doctor is available
-    And An existing doctor schedule is available
-
     When I get schedules with appointments
     Then The response status code should be 200
-    And The response JSON should be valid
 
     When I get schedules with appointments without a session
     Then The response status code should be 401
     And The response should contain message "Session id is empty"
 
-    When I get schedules with appointments with invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    When I get schedules with appointments with an invalid session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
 
-    # Clean up
+    When I get schedules with appointments with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
+    When I clear the session
+    Then The session should be empty
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    When I get schedules with appointments
+    Then The response status code should be 403
+
     When I delete the doctor schedule
+    Then The response status code should be 204
+    When I delete the doctor
     Then The response status code should be 204
 
 # ----------------------------------------------------------------------------------------------------------------------
