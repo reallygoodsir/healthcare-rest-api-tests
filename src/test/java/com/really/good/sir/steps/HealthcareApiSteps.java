@@ -63,6 +63,7 @@ public class HealthcareApiSteps {
     private Integer staleDoctorSpecializationId;
     private String staleCredentialId;
     private byte[] staleDoctorPhoto;
+    private Integer lastSpecializationId;
 
     @Given("The correct API URL")
     public void the_api_base_url_is() {
@@ -3738,6 +3739,99 @@ public class HealthcareApiSteps {
                 .get(RestAssured.baseURI + "/doctors/credential/999999") // wrong credential
                 .then().extract().response();
     }
+
+    @Given("An existing specialization is available")
+    public void an_existing_specialization_is_available() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/specializations")
+                .then().extract().response();
+
+        List<Map<String, Object>> list = response.jsonPath().getList("$");
+        lastSpecializationId = (Integer) list.get(0).get("id");
+    }
+
+    @When("I get all specializations")
+    public void i_get_all_specializations() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/specializations")
+                .then().extract().response();
+    }
+
+    @When("I get all specializations without a session")
+    public void i_get_all_specializations_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/specializations")
+                .then().extract().response();
+    }
+
+    @When("I get all specializations with an invalid session_id")
+    public void i_get_all_specializations_with_invalid_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "99999999")
+                .get(RestAssured.baseURI + "/specializations")
+                .then().extract().response();
+    }
+
+    @When("I get all specializations with a malformed session_id")
+    public void i_get_all_specializations_with_malformed_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "notANumber")
+                .get(RestAssured.baseURI + "/specializations")
+                .then().extract().response();
+    }
+
+    @When("I get specialization by id")
+    public void i_get_specialization_by_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/specializations/" + lastSpecializationId)
+                .then().extract().response();
+    }
+
+    @When("I get specialization by id without a session")
+    public void i_get_specialization_by_id_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/specializations/" + lastSpecializationId)
+                .then().extract().response();
+    }
+
+    @When("I get specialization by id with a malformed session_id")
+    public void i_get_specialization_by_id_with_malformed_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "invalid-format")
+                .get(RestAssured.baseURI + "/specializations/" + lastSpecializationId)
+                .then().extract().response();
+    }
+
+    @When("I get specialization by id with an invalid session_id")
+    public void i_get_specialization_by_id_with_invalid_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "5")
+                .get(RestAssured.baseURI + "/specializations/" + lastSpecializationId)
+                .then().extract().response();
+    }
+
+    @When("I get specialization by id with a non-existing id")
+    public void i_get_specialization_by_id_with_non_existing_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/specializations/999999")
+                .then().extract().response();
+    }
+
+
 
 
     private String randomLetters(int length) {
