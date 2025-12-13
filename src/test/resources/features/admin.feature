@@ -59,11 +59,11 @@ Feature: Healthcare API - Flows
 
     When I create new patient without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I create new patient with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I create new patient with empty first name
     Then The response status code should be 400
@@ -83,27 +83,27 @@ Feature: Healthcare API - Flows
 
     When I create new patient with an empty email
     Then The response status code should be 400
-    And The response should contain message "Email is either of the wrong format or already exists"
+    And The response should contain message "Email has the wrong format"
 
     When I create new patient with an invalid email format
     Then The response status code should be 400
-    And The response should contain message "Email is either of the wrong format or already exists"
+    And The response should contain message "Email has the wrong format"
 
     When I create new patient with a duplicate email
     Then The response status code should be 400
-    And The response should contain message "Email is either of the wrong format or already exists"
+    And The response should contain message "Email already exists"
 
     When I create new patient with an empty phone
     Then The response status code should be 400
-    And The response should contain message "Phone number is either of the wrong format or already exists"
+    And The response should contain message "Phone number has the wrong format"
 
     When I create new patient with an invalid phone format
     Then The response status code should be 400
-    And The response should contain message "Phone number is either of the wrong format or already exists"
+    And The response should contain message "Phone number has the wrong format"
 
     When I create new patient with a duplicate phone
     Then The response status code should be 400
-    And The response should contain message "Phone number is either of the wrong format or already exists"
+    And The response should contain message "Phone number already exists"
 
   Scenario: Admin logs in and updates the patient
     Given The Login endpoint is "/authorization/"
@@ -120,11 +120,11 @@ Feature: Healthcare API - Flows
 
     When I update the patient without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I update the patient with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I update the patient with empty first name
     Then The response status code should be 400
@@ -144,28 +144,28 @@ Feature: Healthcare API - Flows
 
     When I update the patient with an empty email
     Then The response status code should be 400
-    And The response should contain message "Email is either of the wrong format or already exists"
+    And The response should contain message "Email has the wrong format"
 
     When I update the patient with an invalid email format
     Then The response status code should be 400
-    And The response should contain message "Email is either of the wrong format or already exists"
+    And The response should contain message "Email has the wrong format"
 
     Given Another patient exists for duplicate tests
     When I update the patient with an email which exists
     Then The response status code should be 400
-    And The response should contain message "Email is either of the wrong format or already exists"
+    And The response should contain message "Email already exists"
 
     When I update the patient with an empty phone
     Then The response status code should be 400
-    And The response should contain message "Phone number is either of the wrong format or already exists"
+    And The response should contain message "Phone number has the wrong format"
 
     When I update the patient with an invalid phone format
     Then The response status code should be 400
-    And The response should contain message "Phone number is either of the wrong format or already exists"
+    And The response should contain message "Phone number has the wrong format"
 
     When I update the patient with an existing phone
     Then The response status code should be 400
-    And The response should contain message "Phone number is either of the wrong format or already exists"
+    And The response should contain message "Phone number already exists"
 
   Scenario: Admin logs in and deletes the patient
     Given The Login endpoint is "/authorization/"
@@ -182,14 +182,130 @@ Feature: Healthcare API - Flows
 
     When I delete the patient without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I delete the patient with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I delete the patient without an id
     Then The response status code should be 405
+
+  Scenario: Admin gets all patients
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    When I get all patients
+    Then The response status code should be 200
+    And The response JSON should be valid
+
+    When I get all patients without a session
+    Then The response status code should be 401
+    And The response should contain message "Session id is empty"
+
+    When I get all patients with malformed session id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
+    When I get all patients with non existing session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+
+  Scenario: Patient gets own patient id by credential
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "gray@gmail.com" and "64986912"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The response should contain role "PATIENT"
+    And The credential id should be saved
+
+    When I get patient id by credential
+    Then The response status code should be 200
+
+    When I get patient id by credential without session
+    Then The response status code should be 401
+    And The response should contain message "Session id is empty"
+
+    When I get patient id by credential with malformed session id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
+    When I get patient id by credential with non existing credential id
+    Then The response status code should be 400
+    And The response should contain message "Credential id does not exist"
+
+
+  Scenario: Doctor gets patient by id
+
+    Given The Login endpoint is "/authorization/"
+    Given I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    Given An existing patient is available
+
+    When I clear the session
+    Then The session should be empty
+
+    And I have credentials "adrian@gmail.com" and "39963516"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The response should contain role "DOCTOR"
+
+    When I get patient by id
+    Then The response status code should be 200
+    And The response JSON should be valid
+
+    When I get patient by id without session
+    Then The response status code should be 401
+    And The response should contain message "Session id is empty"
+
+    When I get patient by id with a malformed session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
+    When I get patient by id with a non-existing session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I get patient by id with non existing id
+    Then The response status code should be 400
+    And The response should contain message "Patient id does not exist"
+
+
+  Scenario: Call center agent gets patient by phone number
+    Given The Login endpoint is "/authorization/"
+    Given I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    Given An existing patient is available
+
+    When I clear the session
+    Then The session should be empty
+
+    And I have credentials "ccaguy@gmail.com" and "18923574"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The response should contain role "CALL_CENTER_AGENT"
+
+    When I get patient by phone number
+    Then The response status code should be 200
+    And The response JSON should be valid
+
+    When I get patient by phone with non existing phone
+    Then The response status code should be 400
+    And The response should contain message "Phone number does not exist"
+
 #  ---------------------------------------------------------------------------------------------------------------------
 
   Scenario: Admin logs in and creates a service
@@ -207,19 +323,23 @@ Feature: Healthcare API - Flows
 
     When I create new service without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I create new service with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I create new service with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I create new service with empty name
     Then The response status code should be 400
-    And The response should contain message "Name has the wrong format"
+    And The response should contain message "Service name has the wrong format"
 
     When I create new service with a duplicate name
     Then The response status code should be 400
-    And The response should contain message "Name already exists"
+    And The response should contain message "Service name already exists"
 
     When I create new service with invalid price
     Then The response status code should be 400
@@ -240,19 +360,23 @@ Feature: Healthcare API - Flows
 
     When I update the service without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I update the service with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I update the service with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I update the service with an empty name
     Then The response status code should be 400
-    And The response should contain message "Name has the wrong format"
+    And The response should contain message "Service name has the wrong format"
 
     When I update the service with a duplicate name
     Then The response status code should be 400
-    And The response should contain message "Name already exists"
+    And The response should contain message "Service name already exists"
 
     When I update the service with invalid price
     Then The response status code should be 400
@@ -272,17 +396,75 @@ Feature: Healthcare API - Flows
 
     When I delete the service without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I delete the service with an invalid session_id
-    Then The response status code should be 403
-    And The response should contain message "Forbidden to access resource"
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I delete the service with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I delete a service with invalid id
     Then The response status code should be 404
 
     When I delete a service without an id
     Then The response status code should be 405
+
+  Scenario: Admin gets all services
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    When I get all services
+    Then The response status code should be 200
+    And The response JSON should be a valid list
+
+    When I get all services without a session
+    Then The response status code should be 401
+    And The response should contain message "Session id is empty"
+
+    When I get all services with malformed session id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
+    When I get all services with non existing session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+
+  Scenario: Admin gets service by id
+    Given The Login endpoint is "/authorization/"
+    And I have credentials "greatadmin@gmail.com" and "73629175"
+    When I send a POST request to login
+    Then The response status code should be 200
+    And The session cookie "session_id" should exist and not be empty
+    And The response should contain role "ADMIN"
+
+    Given An existing service is available
+    When I get service by id
+    Then The response status code should be 200
+    And The response JSON should be valid
+
+    When I get service by id without a session
+    Then The response status code should be 401
+    And The response should contain message "Session id is empty"
+
+    When I get service by id with malformed session id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
+    When I get service by id with non existing session
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id does not exist"
+
+    When I get service by id with non existing id
+    Then The response status code should be 400
+    And The response should contain message "Service id does not exist"
 
 #  ---------------------------------------------------------------------------------------------------------------------
 

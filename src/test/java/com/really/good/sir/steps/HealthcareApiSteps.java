@@ -963,7 +963,7 @@ public class HealthcareApiSteps {
         PatientDTO patientDTO = new PatientDTO();
         patientDTO.setFirstName("Patient" + randomLetters(6));
         patientDTO.setLastName("User" + randomLetters(6));
-        patientDTO.setEmail(""); // empty email
+        patientDTO.setEmail(null); // empty email
         patientDTO.setPhone(randomPhoneNumber());
         patientDTO.setAddress("123 Main Street");
         patientDTO.setDateOfBirth("1990-01-01");
@@ -1024,7 +1024,7 @@ public class HealthcareApiSteps {
         patientDTO.setFirstName("Patient" + randomLetters(6));
         patientDTO.setLastName("User" + randomLetters(6));
         patientDTO.setEmail("unique" + randomLetters(6) + "@gmail.com");
-        patientDTO.setPhone(""); // empty phone
+        patientDTO.setPhone(null); // empty phone
         patientDTO.setAddress("123 Main Street");
         patientDTO.setDateOfBirth("1990-01-01");
 
@@ -1253,7 +1253,7 @@ public class HealthcareApiSteps {
         patientDTO.setId(existingPatientId);
         patientDTO.setFirstName(patientFirstName);
         patientDTO.setLastName(patientLastName);
-        patientDTO.setEmail(""); // invalid
+        patientDTO.setEmail(null); // invalid
         patientDTO.setPhone(patientPhone);
         patientDTO.setAddress(patientAddress);
         patientDTO.setDateOfBirth(patientDateOfBirth);
@@ -1296,7 +1296,7 @@ public class HealthcareApiSteps {
         patientDTO.setFirstName(patientFirstName);
         patientDTO.setLastName(patientLastName);
         patientDTO.setEmail(patientEmail);
-        patientDTO.setPhone(""); // invalid
+        patientDTO.setPhone(null); // invalid
         patientDTO.setAddress(patientAddress);
         patientDTO.setDateOfBirth(patientDateOfBirth);
 
@@ -1387,46 +1387,6 @@ public class HealthcareApiSteps {
         otherPatientPhone = patientDTO.getPhone();
     }
 
-
-//    @Given("An existing patient is available")
-//    public void an_existing_patient_is_available() throws JsonProcessingException {
-//        i_create_new_patient(); // reuse creation step
-//        existingPatientId = response.jsonPath().getInt("id"); // save ID for update
-//    }
-//
-//    @Given("An existing patient is available")
-//    public void an_existing_patient_is_available() throws JsonProcessingException {
-//        if (sessionId == null) {
-//            throw new IllegalStateException("Admin must be logged in first!");
-//        }
-//
-//        long ts = System.currentTimeMillis();
-//        PatientDTO patient = new PatientDTO();
-//        patient.setFirstName("John");
-//        patient.setLastName("Doe");
-//        patient.setEmail("user+" + ts + "@gmail.com");
-//        patient.setPhone("555" + (1000000 + (ts % 9000000)));
-//        patient.setAddress("123 Street");
-//        patient.setDateOfBirth("1990-01-01");
-//
-//        String body = objectMapper.writeValueAsString(patient);
-//
-//        response = given()
-//                .header("Content-Type", "application/json")
-//                .cookie("session_id", sessionId)
-//                .body(body)
-//                .post(RestAssured.baseURI + "/patients")
-//                .then()
-//                .extract()
-//                .response();
-//
-//        Object idObj = response.jsonPath().get("id");
-//        if (idObj == null) {
-//            throw new IllegalStateException("Patient creation failed: " + response.asString());
-//        }
-//
-//        patientId = ((Number) idObj).intValue();
-//    }
 
     @Given("An existing patient is available")
     public void an_existing_patient_is_available() throws JsonProcessingException {
@@ -1520,6 +1480,137 @@ public class HealthcareApiSteps {
                 .response();
     }
 
+    @When("I get all patients")
+    public void i_get_all_patients() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I get all patients without a session")
+    public void i_get_all_patients_without_session() {
+        response = given()
+                .get(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I get all patients with malformed session id")
+    public void i_get_all_patients_with_malformed_session() {
+        response = given()
+                .cookie("session_id", "abc")
+                .get(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+    @When("I get all patients with non existing session")
+    public void i_get_all_patients_with_non_existing_session() {
+        response = given()
+                .cookie("session_id", "99999999")
+                .get(RestAssured.baseURI + "/patients")
+                .then().extract().response();
+    }
+
+// ========= PATIENT ID BY CREDENTIAL =========
+
+    @When("I get patient id by credential")
+    public void i_get_patient_id_by_credential() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/credentials/" + staleCredentialId)
+                .then().extract().response();
+    }
+
+    @When("I get patient id by credential without session")
+    public void i_get_patient_id_by_credential_without_session() {
+        response = given()
+                .get(RestAssured.baseURI + "/patients/credentials/" + staleCredentialId)
+                .then().extract().response();
+    }
+
+    @When("I get patient id by credential with malformed session id")
+    public void i_get_patient_id_by_credential_with_malformed_session() {
+        response = given()
+                .cookie("session_id", "abc")
+                .get(RestAssured.baseURI + "/patients/credentials/" + staleCredentialId)
+                .then().extract().response();
+    }
+
+    @When("I get patient id by credential with non existing credential id")
+    public void i_get_patient_id_by_credential_with_non_existing_id() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/credentials/99999999")
+                .then().extract().response();
+    }
+
+// ========= PATIENT BY ID =========
+
+    @When("I get patient by id")
+    public void i_get_patient_by_id() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/" + patientId)
+                .then().extract().response();
+    }
+
+    @When("I get patient by id with non existing id")
+    public void i_get_patient_by_id_with_non_existing_id() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/99999999")
+                .then().extract().response();
+    }
+
+    @When("I get patient by id without session")
+    public void i_get_patient_by_id_without_session() {
+        response = given()
+                .get(RestAssured.baseURI + "/patients/" + patientId)
+                .then().extract().response();
+    }
+
+    @When("I get patient by id with a non-existing session")
+    public void i_get_patient_by_id_with_non_existing_session() {
+        response = given()
+                .cookie("session_id", "99999999")
+                .get(RestAssured.baseURI + "/patients/" + patientId)
+                .then().extract().response();
+    }
+
+    @When("I get patient by id with a malformed session")
+    public void i_get_patient_by_id_with_malformed_session() {
+        response = given()
+                .cookie("session_id", "b")
+                .get(RestAssured.baseURI + "/patients/" + patientId)
+                .then().extract().response();
+    }
+
+// ========= PATIENT BY PHONE =========
+
+    @When("I get patient by phone number")
+    public void i_get_patient_by_phone() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/visits/" + patientPhone)
+                .then().extract().response();
+    }
+
+    @When("I get patient by phone with empty phone")
+    public void i_get_patient_by_phone_empty() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/visits/")
+                .then().extract().response();
+    }
+
+    @When("I get patient by phone with non existing phone")
+    public void i_get_patient_by_phone_non_existing() {
+        response = given()
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/patients/visits/000000000")
+                .then().extract().response();
+    }
+
     @When("I create new service without a session")
     public void i_create_new_service_without_session() throws JsonProcessingException {
         ServiceDTO serviceDTO = new ServiceDTO();
@@ -1546,6 +1637,22 @@ public class HealthcareApiSteps {
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", "999999") // invalid session
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I create new service with a malformed session_id")
+    public void i_create_new_service_with_malformed_session_id() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setName("ServiceTestMalformedSession" + randomLetters(5));
+        serviceDTO.setPrice(300);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b") // invalid session
                 .body(requestBody)
                 .post(RestAssured.baseURI + "/services")
                 .then().extract().response();
@@ -1658,7 +1765,24 @@ public class HealthcareApiSteps {
 
         response = given()
                 .header("Content-Type", "application/json")
-                .cookie("session_id", "999999") // invalid session
+                .cookie("session_id", "999999")
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I update the service with a malformed session_id")
+    public void i_update_the_service_with_malformed_session_id() throws JsonProcessingException {
+        ServiceDTO serviceDTO = new ServiceDTO();
+        serviceDTO.setId(lastServiceId);
+        serviceDTO.setName("InvalidSessionService" + randomLetters(5));
+        serviceDTO.setPrice(servicePrice);
+
+        requestBody = objectMapper.writeValueAsString(serviceDTO);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b") // invalid session
                 .body(requestBody)
                 .put(RestAssured.baseURI + "/services")
                 .then().extract().response();
@@ -1751,6 +1875,15 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+    @When("I delete the service with a malformed session_id")
+    public void i_delete_the_service_with_malformed_session_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b") // invalid session
+                .delete(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
     // DELETE with invalid service id
     @When("I delete a service with invalid id")
     public void i_delete_a_service_with_invalid_id() {
@@ -1768,6 +1901,78 @@ public class HealthcareApiSteps {
                 .header("Content-Type", "application/json")
                 .cookie("session_id", sessionId) // valid session
                 .delete(RestAssured.baseURI + "/services/") // missing id
+                .then().extract().response();
+    }
+
+    @When("I get all services without a session")
+    public void i_get_all_services_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I get all services with malformed session id")
+    public void i_get_all_services_with_malformed_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "abc")
+                .get(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+    @When("I get all services with non existing session")
+    public void i_get_all_services_with_non_existing_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "99999999")
+                .get(RestAssured.baseURI + "/services")
+                .then().extract().response();
+    }
+
+// ======== GET SERVICE BY ID ========
+
+    @When("I get service by id")
+    public void i_get_service_by_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    @When("I get service by id without a session")
+    public void i_get_service_by_id_without_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .get(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    @When("I get service by id with malformed session id")
+    public void i_get_service_by_id_with_malformed_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "abc")
+                .get(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    @When("I get service by id with non existing session")
+    public void i_get_service_by_id_with_non_existing_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "99999999")
+                .get(RestAssured.baseURI + "/services/" + lastServiceId)
+                .then().extract().response();
+    }
+
+    @When("I get service by id with non existing id")
+    public void i_get_service_by_id_with_non_existing_id() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .get(RestAssured.baseURI + "/services/99999999")
                 .then().extract().response();
     }
 
