@@ -504,6 +504,23 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+    @When("I create an appointment outcome with a malformed session_id")
+    public void create_appointment_outcome_with_malformed_session() throws JsonProcessingException {
+        AppointmentOutcomeDTO dto = new AppointmentOutcomeDTO();
+        dto.setAppointmentId(appointmentId);
+        dto.setDiagnosis("Test diagnosis");
+        dto.setRecommendations("Test recommendations");
+
+        requestBody = objectMapper.writeValueAsString(dto);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b") // invalid session
+                .body(requestBody)
+                .put(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
     @When("I create an appointment outcome with an invalid appointment_id")
     public void create_appointment_outcome_with_invalid_appointment_id() throws JsonProcessingException {
         AppointmentOutcomeDTO dto = new AppointmentOutcomeDTO();
@@ -3693,6 +3710,14 @@ public class HealthcareApiSteps {
                 .then().extract().response();
     }
 
+    @When("I get all appointments with a malformed session_id")
+    public void i_get_all_appointments_with_malformed_session() {
+        response = given()
+                .cookie("session_id", "b")
+                .get(RestAssured.baseURI + "/appointments")
+                .then().extract().response();
+    }
+
     @When("I get appointment by id")
     public void i_get_appointment_by_id() {
         response = given()
@@ -3788,6 +3813,13 @@ public class HealthcareApiSteps {
     public void i_update_status_with_malformed_session(String status) {
         response = given()
                 .cookie("session_id", "abc123")
+                .patch(RestAssured.baseURI + "/appointments/" + appointmentId + "/" + status)
+                .then().extract().response();
+    }
+
+    @When("I update appointment status to {string} without a session_id")
+    public void i_update_status_with_no_session(String status) {
+        response = given()
                 .patch(RestAssured.baseURI + "/appointments/" + appointmentId + "/" + status)
                 .then().extract().response();
     }
