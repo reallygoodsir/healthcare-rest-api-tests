@@ -187,6 +187,10 @@ Feature: Healthcare API - Flows
     Then The response status code should be 401
     And The response should contain message "Not authorized. Session id does not exist."
 
+    When I delete the appointment with a malformed session_id
+    Then The response status code should be 401
+    And The response should contain message "Not authorized. Session id has incorrect format"
+
     When I delete an appointment with invalid id
     Then The response status code should be 400
     And The response should contain message "Appointment id not found"

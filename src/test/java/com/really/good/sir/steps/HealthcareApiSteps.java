@@ -116,6 +116,37 @@ public class HealthcareApiSteps {
         staleCredentialId = response.jsonPath().getString("credentialId");
     }
 
+    @When("I send a POST request to validate the session")
+    public void i_send_a_post_request_to_validate_the_session() {
+        // Ensure the sessionId is an integer
+        Integer sessionIdInt = Integer.valueOf(sessionId);
+
+        String requestBody = String.format("{\"sessionId\": %d}", sessionIdInt);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .body(requestBody)
+                .post(baseUrl + "session") // remove any trailing slash
+                .then()
+                .extract()
+                .response();
+    }
+
+
+    @When("I send a DELETE request to logout")
+    public void i_send_a_delete_request_to_logout() {
+        Integer sessionIdInt = Integer.valueOf(sessionId);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .delete(baseUrl + "session/" + sessionIdInt)
+                .then()
+                .extract()
+                .response();
+    }
+
+
     @When("I create new service")
     public void i_create_new_service() throws JsonProcessingException {
         serviceName = "ServiceTest" + randomLetters(6);
@@ -562,6 +593,15 @@ public class HealthcareApiSteps {
         response = given()
                 .header("Content-Type", "application/json")
                 .cookie("session_id", "999999")
+                .delete(RestAssured.baseURI + "/appointments/" + appointmentId)
+                .then().extract().response();
+    }
+
+    @When("I delete the appointment with a malformed session_id")
+    public void i_delete_appointment_malformed_session() {
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", "b")
                 .delete(RestAssured.baseURI + "/appointments/" + appointmentId)
                 .then().extract().response();
     }
@@ -2948,6 +2988,25 @@ public class HealthcareApiSteps {
                 .then().extract().response();
 
         lastScheduleId = response.jsonPath().getInt("id");
+    }
+
+    @When("I create a doctor schedule with the wrong role")
+    public void i_create_a_valid_doctor_schedule_wrong_role() throws JsonProcessingException {
+        DoctorScheduleDTO schedule = new DoctorScheduleDTO();
+        schedule.setDoctorId(lastDoctorId);
+        schedule.setScheduleDate(LocalDate.now().plusDays(1).toString());
+        schedule.setStartTime("09:00");
+        schedule.setEndTime("11:00");
+
+        requestBody = objectMapper.writeValueAsString(schedule);
+
+        response = given()
+                .header("Content-Type", "application/json")
+                .cookie("session_id", sessionId)
+                .body(requestBody)
+                .post(RestAssured.baseURI + "/doctor-schedules")
+                .then().extract().response();
+
     }
 
     @When("I create a doctor schedule with empty doctor id")

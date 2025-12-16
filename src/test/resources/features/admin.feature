@@ -201,7 +201,7 @@ Feature: Healthcare API - Flows
 
     When I get all patients
     Then The response status code should be 200
-    And The response JSON should be valid
+    And The response JSON should be a valid list
 
     When I get all patients without a session
     Then The response status code should be 401
@@ -515,13 +515,14 @@ Feature: Healthcare API - Flows
 
     When I clear the session
     Then The session should be empty
+
     Given I have credentials "ccaguy@gmail.com" and "18923574"
     When I send a POST request to login
     Then The response status code should be 200
     And The session cookie "session_id" should exist and not be empty
     And The response should contain role "CALL_CENTER_AGENT"
 
-    When I create a valid doctor schedule
+    When I create a doctor schedule with the wrong role
     Then The response status code should be 403
     And The response should contain message "Forbidden to access resource. Role is not allowed."
 
