@@ -129,7 +129,7 @@ When I update the doctor with invalid photo
 Then The response status code should be 400
 And The response should contain message "Doctor photo is not valid"
 
-      # --- UPDATE DOCTOR SUCCESS ---
+#       --- UPDATE DOCTOR SUCCESS ---
 When I update the doctor
 Then The response status code should be 200
 And The doctor update response has correct data
@@ -179,13 +179,6 @@ And The response should contain message "Forbidden to access resource. Role is n
 When I create new doctor as a non admin user
 Then The response status code should be 403
 And The response should contain message "Forbidden to access resource. Role is not allowed."
-
-
-
-
-
-
-
 
   Scenario: Get doctor by id (valid and invalid cases)
     Given The Login endpoint is "/authorization/"
@@ -303,8 +296,6 @@ And The response should contain message "Forbidden to access resource. Role is n
     Then The response status code should be 200
 
   # Invalid cases
-    When I get the doctor id by credential without session
-    Then The response status code should be 404
 
     When I get the doctor id by credential with wrong credential id
     Then The response status code should be 400

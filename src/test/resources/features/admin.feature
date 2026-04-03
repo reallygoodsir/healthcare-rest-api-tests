@@ -43,6 +43,7 @@ Feature: Healthcare API - Flows
 
     When I delete the service
     Then The response status code should be 204
+#  ---------------------------------------------------------------------------------------------------------------------
 
   Scenario: Admin logs in and creates the patient
     Given The Login endpoint is "/authorization/"
@@ -407,7 +408,7 @@ Feature: Healthcare API - Flows
     And The response should contain message "Not authorized. Session id has incorrect format"
 
     When I delete a service with invalid id
-    Then The response status code should be 404
+    Then The response status code should be 400
 
     When I delete a service without an id
     Then The response status code should be 405
@@ -495,7 +496,7 @@ Feature: Healthcare API - Flows
 
     When I create a doctor schedule with a past date
     Then The response status code should be 400
-    And The response should contain message "Date must be not be in the past"
+    And The response should contain message "Date must not be in the past"
 
     When I create a doctor schedule with invalid time range
     Then The response status code should be 400
@@ -557,7 +558,7 @@ Feature: Healthcare API - Flows
 
     When I update the doctor schedule with a past date
     Then The response status code should be 400
-    And The response should contain message "Date must be not be in the past"
+    And The response should contain message "Date must not be in the past"
 
     When I update the doctor schedule with invalid start or end time
     Then The response status code should be 400

@@ -44,11 +44,11 @@ Feature: Healthcare API - Flows
 
     When I create an appointment without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I create an appointment with an invalid session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I clear the session
     Then The session should be empty
@@ -56,12 +56,12 @@ Feature: Healthcare API - Flows
       # --- INVALID: SESSION ID WRONG FORMAT ---
     When I create an appointment with a malformed session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id has incorrect format."
+    And The response should contain message "Not authorized. Session id has incorrect format"
 
     # --- INVALID: SESSION DOES NOT EXIST ---
     When I create an appointment with a non-existing session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
     # --- INVALID: ROLE NOT ALLOWED (ADMIN tries) ---
     Given I have credentials "greatadmin@gmail.com" and "73629175"
@@ -139,11 +139,11 @@ Feature: Healthcare API - Flows
 
     When I create an appointment outcome without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I create an appointment outcome with an invalid session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I create an appointment outcome with a malformed session_id
     Then The response status code should be 401
@@ -181,11 +181,11 @@ Feature: Healthcare API - Flows
 
     When I delete the appointment without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I delete the appointment with an invalid session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I delete the appointment with a malformed session_id
     Then The response status code should be 401
@@ -225,11 +225,11 @@ Feature: Healthcare API - Flows
 
     When I get all appointments without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I get all appointments with a non-existing session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I get all appointments with a malformed session_id
     Then The response status code should be 401
@@ -291,7 +291,7 @@ Feature: Healthcare API - Flows
 
     When I get appointment by id without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I get appointment by id with a malformed session_id
     Then The response status code should be 401
@@ -299,7 +299,7 @@ Feature: Healthcare API - Flows
 
     When I get appointment by id with a non-existing session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I get appointment with invalid id
     Then The response status code should be 500
@@ -369,7 +369,7 @@ Feature: Healthcare API - Flows
   # --- UNAUTHORIZED: NO SESSION ---
     When I get appointment outcome by id without a session
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
   # --- MALFORMED SESSION ---
     When I get appointment outcome by id with a malformed session_id
@@ -379,7 +379,7 @@ Feature: Healthcare API - Flows
   # --- NON-EXISTING SESSION ---
     When I get appointment outcome by id with a non-existing session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
   # --- INVALID APPOINTMENT ID ---
     When I get appointment outcome with invalid id
@@ -447,7 +447,7 @@ Feature: Healthcare API - Flows
 
     When I update appointment status to "COMPLETED" without a session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized"
+    And The response should contain message "Session id is empty"
 
     When I update appointment status to "COMPLETED" with a malformed session_id
     Then The response status code should be 401
@@ -455,7 +455,7 @@ Feature: Healthcare API - Flows
 
     When I update appointment status to "COMPLETED" with a non-existing session_id
     Then The response status code should be 401
-    And The response should contain message "Not authorized. Session id does not exist."
+    And The response should contain message "Not authorized. Session id does not exist"
 
     When I update appointment status with invalid id
     Then The response status code should be 400

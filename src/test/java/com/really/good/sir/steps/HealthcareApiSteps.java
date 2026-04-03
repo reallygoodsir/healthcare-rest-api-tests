@@ -88,7 +88,7 @@ public class HealthcareApiSteps {
                 .body(requestBody)
                 .post(baseUrl)
                 .then().extract().response();
-
+        System.out.println(">>>>>>>>>>>>> " + response.asPrettyString());
         if (response.getCookie("session_id") != null)
             sessionId = response.getCookie("session_id");
     }
