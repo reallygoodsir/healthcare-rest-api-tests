@@ -305,7 +305,7 @@ public class HealthcareApiSteps {
         doctorLastName = "Medic" + randomLetters(10);
         doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
         doctorPhone = randomPhoneNumber();
-        doctorSpecializationId = 2;
+        doctorSpecializationId = 1;
         byte[] doctorPhoto = "dummy photo content".getBytes();
 
         DoctorDTO doctorDTO = new DoctorDTO();
@@ -2553,7 +2553,7 @@ public class HealthcareApiSteps {
         doctorFirstName = "DoctorTest" + randomLetters(10);
         doctorLastName = "Medic" + randomLetters(10);
         doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
-        doctorSpecializationId = 2;
+        doctorSpecializationId = 1;
 
         DoctorDTO doctorDTO = new DoctorDTO();
         doctorDTO.setFirstName(doctorFirstName);
@@ -2654,7 +2654,7 @@ public class HealthcareApiSteps {
         doctorLastName = "Medic" + randomLetters(10);
         doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
         doctorPhone = randomPhoneNumber();
-        doctorSpecializationId = 2;
+        doctorSpecializationId = 1;
         byte[] doctorPhoto = "new dummy photo content".getBytes();
 
         DoctorDTO doctorDTO = new DoctorDTO();
@@ -2787,7 +2787,7 @@ public class HealthcareApiSteps {
         doctorLastName = "Medic" + randomLetters(10);
         doctorEmail = (doctorFirstName + doctorLastName).toLowerCase() + "@gmail.com";
         doctorPhone = randomPhoneNumber();
-        doctorSpecializationId = 2;
+        doctorSpecializationId = 1;
         byte[] doctorPhoto = "dummy photo content".getBytes();
 
         DoctorDTO doctorDTO = new DoctorDTO();
